@@ -1,6 +1,6 @@
 ﻿namespace MyNewGame.Locations {
-    export function Basement(): StoryScript.ILocation {
-        return {
+    export function Basement() {
+        return Location({
             name: 'Basement',
             destinations: [
                 {
@@ -9,8 +9,8 @@
                 }
             ],
             items: [
-                Items.Journal
+                Items.Journal()
             ]
-        }
+        });
     }
 }

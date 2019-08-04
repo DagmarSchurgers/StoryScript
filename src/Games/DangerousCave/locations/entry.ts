@@ -1,6 +1,6 @@
 ﻿namespace DangerousCave.Locations {
-    export function Entry(): StoryScript.ILocation {
-        return {
+    export function Entry() {
+        return Location({
             name: 'De grot',
             // Example
             //descriptionSelector: function() {
@@ -8,7 +8,7 @@
             //},
             //navigationDisabled: true,
             items: [
-                Items.Lantern
+                Items.Lantern()
             ],
             enterEvents: [
                 (game: IGame) => {
@@ -30,14 +30,14 @@
             actions: [
                 Actions.Search({
                     difficulty: 5,
-                    success: (game) => {
+                    success: (game: IGame) => {
                         game.logToLocationLog('Op de muur staat een pijl, getekend met bloed. Hij wijst naar de rechtergang.')
                     },
-                    fail: (game) => {
+                    fail: (game: IGame) => {
                         game.logToLocationLog('Je vindt alleen stenen en stof.');
                     }
                 })
             ]
-        };
+        });
     }
 }

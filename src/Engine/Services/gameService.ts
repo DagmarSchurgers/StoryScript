@@ -11,12 +11,12 @@
         hasDescription(type: string, item: { id?: string, description?: string }): boolean;
         getDescription(type: string, entity: any, key: string): string;
         initCombat(): void;
-        fight(enemy: ICompiledEnemy, retaliate?: boolean): void;
+        fight(enemy: IEnemy, retaliate?: boolean): void;
         useItem(item: IItem): void;
         executeBarrierAction(destination: IDestination, barrier: IBarrier): void;
         scoreChange(change: number): void;
         hitpointsChange(change: number): void;
-        changeGameState(state: StoryScript.GameState): void;
+        changeGameState(state: GameState): void;
         dynamicLocations(): boolean;
     }
 }
@@ -42,6 +42,13 @@ namespace StoryScript {
             self._game.statistics = self._dataService.load<IStatistics>(StoryScript.DataKeys.STATISTICS) || self._game.statistics || {};
             self._game.worldProperties = self._dataService.load(StoryScript.DataKeys.WORLDPROPERTIES) || self._game.worldProperties || {};
             var locationName = self._dataService.load<string>(StoryScript.DataKeys.LOCATION);
+            var characterSheet = self._rules.getCreateCharacterSheet && self._rules.getCreateCharacterSheet();
+            var hasCreateCharacterSteps = characterSheet && characterSheet.steps && characterSheet.steps.length > 0;
+
+            if (!hasCreateCharacterSteps && !self._game.character) {
+                self.createCharacter(<ICharacter>{});
+                locationName = 'Start';
+            }
 
             if (self._game.character && locationName) {
                 self.resume(locationName);
@@ -78,9 +85,7 @@ namespace StoryScript {
 
         startNewGame = (characterData: any): void => {
             var self = this;
-            self._game.character = self._characterService.createCharacter(self._game, characterData);
-            self._dataService.save(StoryScript.DataKeys.CHARACTER, self._game.character);
-            self.setupCharacter();
+            self.createCharacter(characterData);
             self._game.changeLocation('Start');
             self._game.state = StoryScript.GameState.Play;
         }
@@ -114,7 +119,7 @@ namespace StoryScript {
                 self._dataService.save(StoryScript.DataKeys.GAME + '_' + name, saveGame);
             }
             else {
-                self.SaveWorldState();
+                SaveWorldState(self._dataService, self._locationService, self._game);
             }
         }
 
@@ -135,10 +140,14 @@ namespace StoryScript {
                     self._game.previousLocation = self._game.locations.get(saveGame.previousLocation);
                 }
 
-                self.SaveWorldState();
+                SaveWorldState(self._dataService, self._locationService, self._game);
                 self._dataService.save(StoryScript.DataKeys.LOCATION, self._game.currentLocation.id);
                 self._game.actionLog = [];
                 self._game.state = saveGame.state;
+
+                setTimeout(() => {
+                    self._game.loading = false;
+                }, 0);
             }
         }
 
@@ -163,6 +172,8 @@ namespace StoryScript {
 
             if (description) {
                 self.processMediaTags(entity, key);
+                description = self.processCodeFeatures(entity, description);
+                self.processVisualFeatures(self._game);
             }
 
             return description;
@@ -182,7 +193,7 @@ namespace StoryScript {
             });
         }
 
-        fight = (enemy: ICompiledEnemy, retaliate?: boolean) => {
+        fight = (enemy: IEnemy, retaliate?: boolean) => {
             var self = this;
 
             if (!self._rules || !self._rules.fight)
@@ -216,9 +227,10 @@ namespace StoryScript {
                 return;
             }
 
-            var action = barrier.actions.filter((item: IBarrier) => { return item.name == barrier.selectedAction.name; })[0];
+            var action = barrier.actions.filter((item: IBarrierAction) => { return item.name == barrier.selectedAction.name; })[0];
+            var actionIndex = barrier.actions.indexOf(action);
             action.action(self._game, destination, barrier, action);
-            barrier.actions.remove(action);
+            barrier.actions.splice(actionIndex, 1);
 
             if (barrier.actions.length) {
                 barrier.selectedAction = barrier.actions[0];
@@ -249,7 +261,7 @@ namespace StoryScript {
             }
         }
 
-        changeGameState = (state: StoryScript.GameState) => {
+        changeGameState = (state: GameState) => {
             var self = this;
 
             if (state == StoryScript.GameState.GameOver || state == StoryScript.GameState.Victory) {
@@ -268,9 +280,6 @@ namespace StoryScript {
 
         private resume(locationName: string) {
             var self = this;
-
-            self.setupCharacter();
-
             var lastLocation = self._game.locations.get(locationName);
             var previousLocationName = self._dataService.load<string>(StoryScript.DataKeys.PREVIOUSLOCATION);
 
@@ -287,7 +296,16 @@ namespace StoryScript {
             self._game.state = StoryScript.GameState.Play;
         }
 
-        private enemyDefeated(enemy: ICompiledEnemy) {
+        private createCharacter(characterData : ICharacter) {
+            var self = this;
+            var character = self._characterService.createCharacter(self._game, characterData);
+            character.items = character.items || [];
+            character.quests = character.quests || [];
+            self._dataService.save(StoryScript.DataKeys.CHARACTER, character);
+            self._game.character = self._dataService.load(StoryScript.DataKeys.CHARACTER);
+        }
+
+        private enemyDefeated(enemy: IEnemy) {
             var self = this;
 
             if (enemy.items) {
@@ -311,14 +329,6 @@ namespace StoryScript {
             if (enemy.onDefeat) {
                 enemy.onDefeat(self._game);
             }
-        }
-
-        private SaveWorldState() {
-            var self = this;
-            self._dataService.save(StoryScript.DataKeys.CHARACTER, self._game.character);
-            self._dataService.save(StoryScript.DataKeys.STATISTICS, self._game.statistics);
-            self._dataService.save(StoryScript.DataKeys.WORLDPROPERTIES, self._game.worldProperties);
-            self._locationService.saveWorld(self._game.locations);
         }
 
         private setupGame(): void {
@@ -381,21 +391,6 @@ namespace StoryScript {
                     return self._combinationService.getCombineClass(tool);
                 }
             };
-        }
-
-        private setupCharacter(): void {
-            var self = this;
-
-            createReadOnlyCollection(self._game.character, 'items', isEmpty(self._game.character.items) ? [] : <any>self._game.character.items);
-            createReadOnlyCollection(self._game.character, 'quests', isEmpty(self._game.character.quests) ? [] : <any>self._game.character.quests);
-
-            addProxy(self._game.character, 'item', self._game, self._rules);
-
-            Object.defineProperty(self._game.character, 'combatItems', {
-                get: function () {
-                    return self._game.character.items.filter(e => { return e.useInCombat; });
-                }
-            });
         }
 
         private resetLoadedHtml(entity: any): void {
@@ -476,7 +471,14 @@ namespace StoryScript {
                     var added = element.getAttribute('added');
 
                     if (element.play && added === 'added') {
-                        self.updateMediaTags(parent, key, ['added="added"'], '');
+                        var loop = element.getAttribute('loop');
+
+                        if (loop != null) {
+                            self.updateMediaTags(parent, key, ['added="added"'], 'autoplay');
+                        }
+                        else {
+                            self.updateMediaTags(parent, key, ['added="added"'], '');
+                        }
 
                         // Chrome will block autoplay when the user hasn't interacted with the page yet, use this workaround to bypass that.
                         const playPromise = element.play();
@@ -495,20 +497,133 @@ namespace StoryScript {
 
         private updateMediaTags(entity: any, key: string, tagToFind: string[], tagToReplace: string): boolean {
             let startPlay = false;
+            var entry = entity[key];
 
-            if (entity[key]) {
+            if (entry) {
                 for (var i in tagToFind)
                 {
                     var tag = tagToFind[i];
 
-                    if (entity[key].indexOf(tag) > -1) {
-                        entity[key] = entity[key].replace(tag, tagToReplace);
+                    if (entry.indexOf(tag) > -1) {
+                        entity[key] = entry.replace(tag, tagToReplace);
                         startPlay = true;
                     }
                 }
             }
 
             return startPlay;
+        }
+
+        private processCodeFeatures(location: ICompiledLocation, description: string): string {
+            if (location.features && location.features.length > 0) {
+                var parser = new DOMParser();
+                var htmlDoc = parser.parseFromString(description, 'text/html');
+
+                var map = htmlDoc.getElementsByTagName("map")[0];
+
+                if (map) {
+                    var existingFeatures: string[] = [];
+                    map.childNodes.forEach(n => { 
+                        var name = <string>(<HTMLAreaElement>n).attributes['name'].nodeValue;
+
+                        if (name) {
+                            existingFeatures.push(name.toLowerCase());
+                        }
+                    });
+
+                    location.features.forEach(f => {
+                        if (f.shape && f.coords && existingFeatures.indexOf(f.id) < 0) {
+                            var newNode = <HTMLAreaElement>document.createElement('area');
+                            newNode.setAttribute('name', f.id);
+                            newNode.setAttribute('shape', f.shape);
+                            newNode.setAttribute('coords', f.coords);
+                            description = description.replace('</map>', newNode.outerHTML + '</map>');
+                        }
+                    });
+                }
+            }
+
+            return description;
+        }
+
+        private processVisualFeatures(game: IGame) {
+            var self = this;
+
+            // Get map, shape and coordinates information for image map features and add pictures for them.
+            // For this to work, the description needs to be updated in the browser, hence the timeout.
+            setTimeout(() => {
+                var map = document.getElementsByTagName("map")[0];
+
+                if (map) {
+                    var mapName = map.attributes['name'] && map.attributes['name'].nodeValue;
+                    var areaNodes = map.childNodes;
+
+                    for (var f = 0; f < areaNodes.length; f++) {
+                        const node = <HTMLAreaElement>areaNodes[f];
+                        var nameAttribute = node.attributes['name'] && node.attributes['name'].nodeValue;
+
+                        if (nameAttribute) {
+                            var feature = game.currentLocation.features.get(nameAttribute);
+
+                            if (feature) {
+                                if (!node.hasChildNodes()) {
+                                    var shapeAttribute = node.attributes['shape'] && node.attributes['shape'].nodeValue;
+                                    var coordsAttribute = node.attributes['coords'] && node.attributes['coords'].nodeValue;
+                                    feature.map = mapName;
+                                    feature.coords = coordsAttribute;
+                                    feature.shape = shapeAttribute;
+                                    self.addFeaturePicture(feature, coordsAttribute, node);
+                                }
+                            }
+                            else {
+                                map.removeChild(node);
+                            }
+                        }
+                    }
+                }
+            }, 0);
+        }
+
+        private addFeaturePicture(feature: IFeature, coordsAttribute: any, node: HTMLAreaElement) {
+            if (!feature.picture) {
+                return;
+            }
+    
+            var image = document.createElement('img');
+            var coords = coordsAttribute.split(",");
+            var top = null, left = null;
+    
+            if (feature.shape.toLowerCase() === 'poly') {
+                var x = [], y = [];
+    
+                for (var i = 0; i < coords.length; i++) {
+                    var value = coords[i];
+                    if (i % 2 === 0) {
+                        x.push(value);
+                    }
+                    else {
+                        y.push(value);
+                    }
+                }
+    
+                left = x.reduce(function (p, v) {
+                    return (p < v ? p : v);
+                });
+                
+                top = y.reduce(function (p, v) {
+                    return (p < v ? p : v);
+                });
+            }
+            else {
+                left = coords[0];
+                top = coords[1];
+            }
+    
+            image.src = 'resources/' + feature.picture;
+            image.style.position = 'absolute';
+            image.style.top = top + 'px';
+            image.style.left = left + 'px';
+            node.appendChild(image);
         }
 
         private updateHighScore(): void {

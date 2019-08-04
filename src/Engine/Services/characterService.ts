@@ -262,6 +262,10 @@ namespace StoryScript {
         }
 
         private processDefaultSettings = (character: ICharacter, characterData: ICreateCharacter): void => {
+            if (!characterData.steps) {
+                return;
+            }
+
             characterData.steps.forEach(function (step) {
                 if (step.questions) {
                     step.questions.forEach(function (question) {
@@ -309,7 +313,7 @@ namespace StoryScript {
                     }
                 }
 
-                if (equippedItem && !isNaN( equippedItem.equipmentType) && self._game.character.items.indexOf(equippedItem) === -1) {
+                if (equippedItem && !isNaN(equippedItem.equipmentType) && !self._game.character.items.get(equippedItem)) {
                     self._game.character.items.push(equippedItem);
                 }
 

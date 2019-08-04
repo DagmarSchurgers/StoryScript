@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Troll(): StoryScript.ILocation {
-        return {
+    export function Troll() {
+        return Location({
             name: 'The Troll',
             destinations: [
                 {
@@ -9,7 +9,7 @@
                 }
             ],
             enemies: [
-                Enemies.Troll             
+                Enemies.Troll()          
             ],
             actions: [
                 {
@@ -20,6 +20,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }    

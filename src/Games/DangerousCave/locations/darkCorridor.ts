@@ -1,9 +1,9 @@
 ﻿namespace DangerousCave.Locations {
-    export function DarkCorridor(): StoryScript.ILocation {
-        return {
+    export function DarkCorridor() {
+        return Location({
             name: 'Een donkere smalle gang',
             enemies: [
-                Enemies.Orc
+                Enemies.Orc()
             ],
             destinations: [
                 {
@@ -15,6 +15,6 @@
                     target: Locations.CrossRoads
                 }
             ],
-        }
+        });
     }
 }

@@ -1,10 +1,10 @@
 ﻿module QuestForTheKing.Enemies {
-    export function Assassin(): IEnemy {
-        return {
+    export function Assassin() {
+        return Enemy({
             name: 'Assassin',
             hitpoints: 12,
             attack: '1d4',
             reward: 1,                  
-        }
+        });
     }
 }

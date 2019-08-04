@@ -4,13 +4,12 @@
      * should keep the key after using it, it is removed from his item list.
      * @param callBack 
      */
-    export function OpenWithKey(callBack: (game: IGame, destination: StoryScript.IDestination) => void) {
-        return function (game: IGame, destination: StoryScript.IDestination) {
-            var key = destination.barrier.key;
-            var keepAfterUse = (<any>key).keepAfterUse;
+    export function OpenWithKey(callBack: (game: IGame, destination: IDestination) => void) {
+        return (game: IGame, destination: IDestination) => {
+            var key = <IKey>destination.barrier.key;
 
-            if (keepAfterUse === undefined || keepAfterUse !== true) {
-                // Cater for the situation that the player dropped the key before activating the open action.
+            if (key.keepAfterUse === undefined || key.keepAfterUse !== true) {
+                // Todo: Cater for the situation that the player dropped the key before activating the open action.
                 game.character.items.remove(key);
                 game.currentLocation.items.remove(key);
             }

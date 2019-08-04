@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Day4(): StoryScript.ILocation {
-        return {
+    export function Day4() {
+        return Location({
             name: 'Day 4',
             destinations: [
                 {
@@ -9,11 +9,11 @@
                 }
             ],
             enemies: [
-                Enemies.SirAyric
+                Enemies.SirAyric()
             ],
             enterEvents: [
                 changeDay
             ]
-        }
+        });
     }
 }

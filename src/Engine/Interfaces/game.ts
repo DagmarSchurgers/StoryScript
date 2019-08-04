@@ -36,7 +36,7 @@
         /**
          * All the locations in the game world.
          */
-        locations: ICompiledCollection<ILocation, ICompiledLocation>;
+        locations: ILocationCollection;
 
         /**
          * The location in the game world the player is currently at.
@@ -154,6 +154,6 @@
          * @param enemy The enemy to attack
          * @param boolean True if the enemy can retaliate (default), false otherwise
          */
-        fight(enemy: ICompiledEnemy, retaliate?: boolean): void;
+        fight(enemy: IEnemy, retaliate?: boolean): void;
     }
 }

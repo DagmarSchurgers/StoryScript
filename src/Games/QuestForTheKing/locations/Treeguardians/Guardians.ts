@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Guardians(): StoryScript.ILocation {
-        return {
+    export function Guardians() {
+        return Location({
             name: 'The Strange Trees',
             destinations: [
                 {
@@ -16,6 +16,6 @@
                     }
                 }                                     
             ]
-        }
+        });
     }
 }    

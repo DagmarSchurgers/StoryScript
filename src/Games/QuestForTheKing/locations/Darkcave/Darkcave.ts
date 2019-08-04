@@ -1,11 +1,10 @@
 ﻿module QuestForTheKing.Locations {
-    export function Darkcave(): StoryScript.ILocation {
-        return {
+    export function Darkcave() {
+        return Location({
             name: 'The Dark Cave',           
             enemies: [
-                Enemies.Enchantress
-
+                Enemies.Enchantress()
             ]
-        }
+        });
     }
 }    

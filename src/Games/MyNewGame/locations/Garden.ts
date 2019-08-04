@@ -1,6 +1,6 @@
 ﻿namespace MyNewGame.Locations {
-    export function Garden(): StoryScript.ILocation {
-        return {
+    export function Garden() {
+        return Location({
             name: 'Garden',
             destinations: [
                 {
@@ -45,6 +45,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }

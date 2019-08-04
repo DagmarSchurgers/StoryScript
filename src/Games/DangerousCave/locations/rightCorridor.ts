@@ -1,6 +1,6 @@
 ﻿namespace DangerousCave.Locations {
-    export function RightCorridor(): StoryScript.ILocation {
-        return {
+    export function RightCorridor() {
+        return Location({
             name: 'Een gemetselde gang',
             destinations: [
                 {
@@ -12,6 +12,6 @@
                     target: Locations.RoomOne
                 }
             ]
-        }
+        });
     }
 }

@@ -1,22 +1,10 @@
 ﻿namespace StoryScript {
     /**
-     * Defines an enemy for the game.
+     * Defines the base properties for an enemy in the game.
      */
-    export interface IEnemy extends ICombinable {
+    export interface IEnemy extends IFeature {
         /**
-         * The file name of the image to display for the enemy. The file name should be relative to the index.html file. Note that if you
-         * use an HTML-page to describe the enemy, you can add an image-tag to it with the class 'picture'. The source of the image-tag
-         * will then be used to set this property at run-time.
-         */
-        pictureFileName?: string;
-
-        /**
-         * The name of the enemy as displayed to the player.
-         */
-        name: string;
-
-        /**
-         * The details about this enemy as displayed to the player. If you use an HTML-page to describe the enemy, the contents of that HTM-page
+         * The details about this enemy as displayed to the player. If you use an HTML-page to describe the enemy, the contents of that HTML-page
          * will be used to set this property at run-time.
          */
         description?: string;
@@ -32,15 +20,15 @@
         currency?: number;
 
         /**
+         * The items the enemy is carrying.
+         */
+        items?: ICollection<IItem>;
+
+        /**
          * When this flag is set to true, the enemy is not shown to the player, cannot be attacked and will not block the player from travelling.
          * Useful to only conditionally make enemies present on a location.
          */
         inactive?: boolean;
-
-        /**
-         * The items the enemy is carrying.
-         */
-        items?: ICollection<() => IItem>;
 
         /**
          * When specified, this function will be called when the enemy is attacked by the player.

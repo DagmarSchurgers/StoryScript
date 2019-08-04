@@ -1,7 +1,19 @@
 ﻿namespace DangerousCave.Locations {
-    export function LeftCorridor(): StoryScript.ILocation {
-        return {
+    export function LeftCorridor() {
+        return Location({
             name: 'Een pikdonkere gang',
+            destinations: [
+                {
+                    name: 'Dieper de grot in',
+                    target: Locations.DoorOne,
+                    inactive: true
+                },
+                {
+                    name: 'Richting ingang',
+                    target: Locations.Entry,
+                    inactive: true
+                }
+            ],
             enterEvents: [
                 (game: IGame) => {
                     var damage = Math.floor(Math.random() * 6 + 1) - game.character.vlugheid;
@@ -21,29 +33,21 @@
                         //}
 
                         game.logToActionLog('Je klimt uit de kuil.');
-
-                        game.currentLocation.destinations.push({
-                            name: 'Dieper de grot in',
-                            target: Locations.DoorOne
-                        });
-                        game.currentLocation.destinations.push({
-                            name: 'Richting ingang',
-                            target: Locations.Entry
-                        });
+                        game.currentLocation.destinations.forEach(d => d.inactive = false);
                     }
                 },
                 Actions.Search({
                     text: 'Doorzoek de kuil',
                     difficulty: 9,
-                    success: (game) => {
-                        game.currentLocation.items.push(Items.LeatherHelmet);
+                    success: (game: IGame) => {
+                        game.currentLocation.items.push(Items.LeatherHelmet());
                         game.logToLocationLog('In de kuil voel je botten, spinrag en de resten van kleding. Ook vind je er een nog bruikbare helm!')
                     },
-                    fail: (game) => {
+                    fail: (game: IGame) => {
                         game.logToLocationLog('In de kuil voel je botten, spinrag en de resten van kleding.');
                     }
                 })
             ]
-        }
+        });
     }
 }

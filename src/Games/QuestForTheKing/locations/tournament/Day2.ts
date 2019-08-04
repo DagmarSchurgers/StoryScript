@@ -1,9 +1,9 @@
 ﻿module QuestForTheKing.Locations {
-    export function Day2(): StoryScript.ILocation {
-        return {
+    export function Day2() {
+        return Location({
             name: 'Day 2',
             enemies: [
-                Enemies.Nobleman
+                Enemies.Nobleman()
             ],
             destinations: [
                 {
@@ -25,6 +25,6 @@
             enterEvents: [
                 changeDay
             ]
-        }
+        });
     }
 }

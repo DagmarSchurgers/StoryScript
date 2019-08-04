@@ -1,11 +1,11 @@
 ﻿namespace MyNewGame.Persons {
-    export function Friend(): IPerson {
-        return {
+    export function Friend() {
+        return Person({
             name: 'Joe',
             hitpoints: 10,
             attack: '1d6',
             items: [
-                Items.Sword
+                Items.Sword()
             ],
             currency: 10,
             trade: {
@@ -32,7 +32,7 @@
                     'addHedgehog': (game, person) => {
                         var garden = game.locations.get(Locations.Garden);
                         garden.hasVisited = false;
-                        garden.enterEvents = <any>[];
+                        garden.enterEvents.length = 0;
 
                         garden.enterEvents.push((game: IGame) => {
                             game.logToLocationLog('Ah! There is the hedgehog Joe was talking about.');
@@ -41,8 +41,8 @@
                 }
             },
             quests: [
-                Quests.Journal
+                Quests.Journal()
             ]
-        }
+        });
     }
 }

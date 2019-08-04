@@ -1,6 +1,6 @@
 ﻿namespace MyNewGame.Locations {
-    export function DirtRoad(): StoryScript.ILocation {
-        return {
+    export function DirtRoad() {
+        return Location({
             name: 'Dirt road',
             destinations: [
                 {
@@ -9,7 +9,7 @@
                 }
             ],
             enemies: [
-                Enemies.Bandit
+                Enemies.Bandit()
             ],
             combatActions: [
                 {
@@ -22,6 +22,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }

@@ -1,8 +1,8 @@
 ﻿namespace DangerousCave.Actions {
     export function Flee(text: string): StoryScript.IAction {
-        return {
+        return Action({
             text: text || 'Vluchten!',
-            type: StoryScript.ActionType.Check,
+            actionType: StoryScript.ActionType.Check,
             status: function (game: IGame) {
                 return StoryScript.isEmpty(game.currentLocation.activeEnemies) ? StoryScript.ActionStatus.Unavailable : StoryScript.ActionStatus.Available;
             },
@@ -24,6 +24,6 @@
 
                 return true;
             }
-        }
+        });
     }
 }

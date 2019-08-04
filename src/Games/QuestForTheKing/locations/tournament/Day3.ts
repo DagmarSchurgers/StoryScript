@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Day3(): StoryScript.ILocation {
-        return {
+    export function Day3() {
+        return Location({
             name: 'Day 3',
             destinations: [
                 {
@@ -19,11 +19,11 @@
                 },
             ],
             enemies: [
-                Enemies.Shieldmaiden
+                Enemies.Shieldmaiden()
             ],
             enterEvents: [
                 changeDay
             ]
-        }
+        });
     }
 }

@@ -5,7 +5,7 @@ namespace StoryScript
         getButtonClass(action: IAction): string;
         executeAction(action: IAction, controller: ng.IComponentController): void;
         startCombat(): void;
-        trade(game: IGame, actionIndex: number, trade: ICompiledPerson | ITrade): boolean;
+        trade(game: IGame, actionIndex: number, trade: IPerson | ITrade): boolean;
         showDescription(scope: ng.IScope, type: string, item: any, title: string, ): void;
     }
 
@@ -37,7 +37,7 @@ namespace StoryScript
         }
 
         getButtonClass = (action: IAction): string => {
-            var type = action.type || ActionType.Regular;
+            var type = action.actionType || ActionType.Regular;
             var buttonClass = 'btn-';
 
             switch (type) {
@@ -74,7 +74,7 @@ namespace StoryScript
 
                 // Todo: combat actions will never be removed this way.
                 if (!result && self._game.currentLocation.actions) {
-                    self._game.currentLocation.actions.remove(action);
+                    self._game.currentLocation.actions.splice(actionIndex, 1);
                 }
 
                 // After each action, save the game.
@@ -88,7 +88,7 @@ namespace StoryScript
             self._game.state = GameState.Combat;
         }
 
-        trade = (game: IGame, actionIndex: number, trade: ICompiledPerson | ITrade): boolean => {
+        trade = (game: IGame, actionIndex: number, trade: IPerson | ITrade): boolean => {
             var self = this;
             self._tradeService.trade(trade);
 
@@ -111,7 +111,7 @@ namespace StoryScript
 
         private getActionIndex(game: IGame, action: IAction): number {
             var index = -1;
-            var compare = (a: IAction) => a.type === action.type && a.text === action.text && a.status === action.status;
+            var compare = (a: IAction) => a.actionType === action.actionType && a.text === action.text && a.status === action.status;
 
             game.currentLocation.actions.forEach((a, i) => {
                 if (compare(a)) {

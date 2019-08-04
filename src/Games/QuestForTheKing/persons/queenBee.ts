@@ -1,13 +1,13 @@
 ﻿module QuestForTheKing.Persons {
-    export function QueenBee(): IPerson {
-        return {
+    export function QueenBee() {
+        return Person({
             name: 'Queen Bee',
-            //pictureFileName: 'bandit.jpg',
+            //picture: 'bandit.jpg',
             hitpoints: 10,
             attack: '1d6',
             reward: 5,
             items: [
-                Items.Beesting
+                Items.Beesting()
             ],
             currency: 10,
             conversation: {
@@ -26,6 +26,6 @@
                     }
                 }
             }
-        }
+        });
     }
 }

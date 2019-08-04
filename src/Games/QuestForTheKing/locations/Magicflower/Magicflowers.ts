@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Magicflowers(): StoryScript.ILocation {
-        return {
+    export function Magicflowers() {
+        return Location({
             name: 'The Magic Flowers',
             destinations: [
                 {
@@ -9,13 +9,12 @@
                 }              
             ],            
             enemies: [
-                Enemies.Brownbear
+                Enemies.Brownbear()
 
             ],
             items: [
-                Items.Magicflower,                
+                Items.Magicflower(),                
             ]
-        }
+        });
     }
 }
-   

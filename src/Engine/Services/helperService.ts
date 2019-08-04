@@ -19,65 +19,51 @@
          * Get a random enemy to add to the game.
          * @param selector A selector function to limit the list of enemies that can be returned at random (for example a function that excludes ghosts)
          */
-        randomEnemy(selector?: (enemy: IEnemy) => boolean): ICompiledEnemy;
+        randomEnemy(selector?: (enemy: IEnemy) => boolean): IEnemy;
 
         /**
          * Get a random item to add to the game.
          * @param selector A selector function to limit the list of items that can be returned at random (for example a function that excludes magic items)
          */
-        randomItem(selector?: (enemy: IItem) => boolean): IItem;
+        randomItem(selector?: (item: IItem) => boolean): IItem;
 
         /**
-         * Gets a specific type of enemy to add to the game.
-         * @param selector The type of the enemy to add, as a string or a function name (e.g. 'Orc' or MyNewGame.Orc)
-         */
-        getEnemy(selector: string | (() => IEnemy)): ICompiledEnemy;
-
-        /**
-         * Gets a specific type of item to add to the game.
-         * @param selector The type of the item to add, as a string or a function name (e.g. 'Dagger' or MyNewGame.Dagger)
+         * Gets a specific item to add to the game.
+         * @param selector The id of the item to add
          */        
-        getItem(selector: string | (() => IItem)): IItem;
+        getItem(selector: string): IItem;
 
         /**
-         * Gets a specific (type of) person to add to the game.
-         * @param selector The type of the person to add, as a string or a function name (e.g. 'Friend' or MyNewGame.Friend)
-         */
-        getPerson(selector: string | (() => IPerson)): ICompiledPerson;
+         * Gets a specific enemy to add to the game.
+         * @param selector The id of the enemy to add
+         */        
+        getEnemy(selector: string): IEnemy;
     }
 }
 
 namespace StoryScript {
     export class HelperService implements IHelperService {
-        constructor(private _game: IGame, private _rules: IRules) {
+        constructor(private _game: IGame) {
         }
 
-        getEnemy = (selector: string | (() => IEnemy)): ICompiledEnemy => {
+        randomEnemy = (selector?: (enemy: IEnemy) => boolean): IEnemy => {
             var self = this;
-            var instance = StoryScript.find<IEnemy>(self._game.definitions.enemies, selector, 'enemies', self._game.definitions);
-            return instantiateEnemy(instance, self._game.definitions, self._game, self._rules);
+            return random<IEnemy>('enemies', self._game.definitions, <(enemy: IEnemy) => boolean>selector);
         }
 
-        getItem = (selector: string | (() => IItem)) => {
+        randomItem = (selector?: (item: IItem) => boolean): IItem => {
             var self = this;
-            return StoryScript.find<IItem>(self._game.definitions.items, selector, 'items', self._game.definitions);
+            return random<IItem>('items', self._game.definitions, <(item: IItem) => boolean>selector);
+        }
+     
+        getItem = (selector: string): IItem => {
+            var self = this;
+            return this.find<IItem>(selector, 'items', self._game.definitions);
         }
 
-        getPerson = (selector: string | (() => IPerson)): ICompiledPerson => {
+        getEnemy = (selector: string): IEnemy => {
             var self = this;
-            var instance = StoryScript.find<IPerson>(self._game.definitions.persons, selector, 'persons', self._game.definitions);
-            return instantiatePerson(instance, self._game.definitions, self._game, self._rules);
-        }
-
-        randomEnemy = (selector?: (enemy: IEnemy) => boolean): ICompiledEnemy => {
-            var self = this;
-            var instance = StoryScript.random<IEnemy>(self._game.definitions.enemies, 'enemies', self._game.definitions, <(enemy: IEnemy) => boolean>selector);
-            return instantiateEnemy(instance, self._game.definitions, self._game, self._rules);
-        }
-
-        randomItem = (selector?: string | (() => IItem) | ((item: IItem) => boolean)): IItem => {
-            var self = this;
-            return StoryScript.random<IItem>(self._game.definitions.items, 'items', self._game.definitions, <(item: IItem) => boolean>selector);
+            return this.find<IEnemy>(selector, 'enemies', self._game.definitions);
         }
 
         rollDice = (compositeOrSides: string | number, dieNumber: number = 1, bonus: number = 0): number => {
@@ -128,6 +114,20 @@ namespace StoryScript {
             }
 
             return bonus;
+        }
+        
+        private find<T>(selector: string, type: string, definitions: IDefinitions): T {
+            var collection = definitions[type];
+
+            if (!collection && !selector) {
+                return null;
+            }
+
+            var match = (<[() => T]>collection).filter((definition: () => T) => {
+                return (<any>definition).name === selector;
+            });
+
+            return match[0] ? match[0]() : null;
         }
     }
 }

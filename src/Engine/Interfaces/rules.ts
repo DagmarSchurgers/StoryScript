@@ -46,15 +46,6 @@
         levelUp?(character: ICharacter, characterData: ICreateCharacter): boolean;
 
         /**
-         * When specified, this function will be called whenever an enemy is added to a location, allowing you
-         * to add some custom logic to this event.
-         * @param game The active game
-         * @param location The location the enemy is added to
-         * @param enemy The enemy added
-         */
-        addEnemyToLocation?(game: IGame, location: ICompiledLocation, enemy: ICompiledEnemy): void;
-
-        /**
          * When specified, this function will be called whenever the player enters a location.
          * @param game The active game
          * @param location The location the player enters
@@ -77,14 +68,14 @@
          * @param enemy The enemy being attacked
          * @param retaliate True if the enemies present can fight back, false or undefined otherwise
          */
-        fight?(game: IGame, enemy: ICompiledEnemy, retaliate?: boolean): void;
+        fight?(game: IGame, enemy: IEnemy, retaliate?: boolean): void;
 
         /**
          * This function will be called when an enemy is defeated.
          * @param game The active game
          * @param enemy The enemy just defeated
          */
-        enemyDefeated?(game: IGame, enemy: ICompiledEnemy): void;
+        enemyDefeated?(game: IGame, enemy: IEnemy): void;
 
         /**
          * Specify this function if you want to do something special when the player's health changes.

@@ -24,7 +24,7 @@ namespace StoryScript {
             self._sharedMethodService.executeAction(action, self);
         }
 
-        fight = (enemy: ICompiledEnemy): void => {
+        fight = (enemy: IEnemy): void => {
             var self = this;
             self._gameService.fight(enemy);
         }

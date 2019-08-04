@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Stonemount(): StoryScript.ILocation {
-        return {
+    export function Stonemount() {
+        return Location({
             name: 'The Stone Mount',
             destinations: [
                 {
@@ -9,8 +9,8 @@
                 },             
             ],
             enemies: [
-                Enemies.Wolf,
-                Enemies.Wolf
+                Enemies.Wolf(),
+                Enemies.Wolf()
             ],
             actions: [
                 {
@@ -21,6 +21,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }    

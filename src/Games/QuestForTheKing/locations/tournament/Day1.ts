@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Day1(): StoryScript.ILocation {
-        return {
+    export function Day1() {
+        return Location({
             name: 'Day 1',
             destinations: [
                 {
@@ -25,11 +25,11 @@
 
             ],
             enemies: [
-                Enemies.Farmboy
+                Enemies.Farmboy()
             ],
             enterEvents: [
                 changeDay
             ]
-        }
+        });
     }
 }

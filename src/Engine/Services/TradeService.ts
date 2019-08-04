@@ -1,7 +1,7 @@
 namespace StoryScript {
     export interface ITradeService {
         initTrade(): ITrade;
-        trade(trade: ICompiledPerson | ITrade): void;
+        trade(trade: IPerson | ITrade): void;
         canPay(currency: number, value: number): boolean;
         actualPrice(item: IItem, modifier: number | (() => number)): number;
         displayPrice(item: IItem, actualPrice: number): string;
@@ -15,19 +15,19 @@ namespace StoryScript {
         constructor(private _game: IGame, private _texts: IInterfaceTexts) {
         }
 
-        trade = (trade: ICompiledPerson | ITrade): void => {
+        trade = (trade: IPerson | ITrade): void => {
             var self = this;
-            var isPerson = trade['type'] === 'person';
+            var isPerson = trade['type'] === 'persons';
 
-            self._game.currentLocation.activeTrade = isPerson ? (<ICompiledPerson>trade).trade : self._game.currentLocation.trade;
+            self._game.currentLocation.activeTrade = isPerson ? (<IPerson>trade).trade : self._game.currentLocation.trade;
             var trader = self._game.currentLocation.activeTrade;
 
             if (isPerson) {
-                trader.currency = (<ICompiledPerson>trade).currency;
-                self._game.currentLocation.activePerson = <ICompiledPerson>trade;
+                trader.currency = (<IPerson>trade).currency;
+                self._game.currentLocation.activePerson = <IPerson>trade;
 
                 if (!trader.title) {
-                    trader.title = self._texts.format(self._texts.trade, [(<ICompiledPerson>trade).name]);
+                    trader.title = self._texts.format(self._texts.trade, [(<IPerson>trade).name]);
                 }
             }
 
@@ -43,7 +43,7 @@ namespace StoryScript {
                 return null;
             }
 
-            var itemsForSale = trader.buy.items;
+            var itemsForSale = trader.buy.items ? trader.buy.items.slice() : undefined;
 
             var buySelector = (item: IItem) => {
                 return trader.buy.itemSelector(self._game, item);
@@ -59,8 +59,15 @@ namespace StoryScript {
                 return trader.sell.itemSelector(self._game, item);
             };
 
-            trader.buy.items = itemsForSale;
-            trader.sell.items = StoryScript.randomList<IItem>(self._game.character.items, trader.sell.maxItems, 'items', self._game.definitions, sellSelector);
+            var itemsToSell = StoryScript.randomList<IItem>(self._game.character.items, trader.sell.maxItems, 'items', self._game.definitions, sellSelector);
+
+            trader.buy.items = trader.buy.items || [];
+            trader.buy.items.length = 0;
+            itemsForSale.forEach(i => trader.buy.items.push(i));
+
+            trader.sell.items = trader.sell.items || [];
+            trader.sell.items.length = 0;
+            itemsToSell.forEach(i => trader.sell.items.push(i));
 
             return trader;
         }

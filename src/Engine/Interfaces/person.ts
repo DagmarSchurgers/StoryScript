@@ -1,6 +1,6 @@
 ﻿namespace StoryScript {
     /**
-     * A character the player can talk or trade with.
+     * The base properties of a character in the game the player can talk or trade with.
      */
     export interface IPerson extends IEnemy {
         /**
@@ -16,11 +16,11 @@
         /**
          * The conversation options for the person.
          */
-        conversation?: IConversationOptions;
+        conversation?: IConversation;
 
         /**
          * The quests this person has available.
          */
-        quests?: ICollection<() => IQuest>;
+        quests?: ICollection<IQuest>;
     }
 }

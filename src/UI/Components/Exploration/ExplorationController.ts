@@ -58,7 +58,7 @@ namespace StoryScript {
             self._gameService.executeBarrierAction(destination, barrier);
         }
 
-        trade = (game: IGame, actionIndex: number, trade: ICompiledPerson | ITrade) => {
+        trade = (game: IGame, actionIndex: number, trade: IPerson | ITrade) => {
             var self = this;
             return self._sharedMethodService.trade(game, actionIndex, trade);
         }

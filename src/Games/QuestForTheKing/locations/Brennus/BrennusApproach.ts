@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function BrennusApproach(): StoryScript.ILocation {
-        return {
+    export function BrennusApproach() {
+        return Location({
             name: 'Brennus',
             destinations: [
                 {
@@ -9,8 +9,8 @@
                 }
             ],
             enemies: [
-                Enemies.Brennus
+                Enemies.Brennus()
             ]
-        }
+        });
     }
 }    

@@ -1,7 +1,7 @@
 ﻿namespace GameTemplate.Locations {
-    export function Start(): StoryScript.ILocation {
-        return {
+    export function Start() {
+        return Location({
             name: 'Start'
-        }
+        });
     }
 }

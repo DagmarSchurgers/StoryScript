@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Oceanshrine(): StoryScript.ILocation {
-        return {
+    export function Oceanshrine() {
+        return Location({
             name: 'The Ocean Shrine',
             destinations: [
                 {
@@ -10,7 +10,7 @@
             ],
             items: [
                 // Todo: should this be inactive and only show for the wizard when touching the altar?
-                Items.Magicring,            
+                Items.Magicring(),            
             ],
             actions: [
                 {
@@ -28,7 +28,7 @@
                         if (isWizard) {
                             game.currentLocation.actions.push({
                                 text: 'Search the altar',
-                                type: StoryScript.ActionType.Check,
+                                actionType: StoryScript.ActionType.Check,
                                 execute: (game: IGame) => {
                                     game.currentLocation.items.map(i => i.inactive = false);
                                 }
@@ -37,6 +37,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }    

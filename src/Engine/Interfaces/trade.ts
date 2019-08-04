@@ -1,6 +1,6 @@
 ﻿namespace StoryScript {
     /**
-     * The options to configure a trader of or a container for items in the game.
+     * The base properties to configure a trader of or a container for items in the game.
      */
     export interface ITrade {
         /**
@@ -12,16 +12,6 @@
          * The description of the trade as shown to the player.
          */
         description?: string;
-
-        /**
-         * The collection of items the trader will buy or that can be put in the store.
-         */
-        sell?: IStock;
-
-        /**
-         * The collection of items the trader has to offer or that can be taken from the store.
-         */
-        buy?: IStock;
 
         /**
          * The amount of credits the trader has in whatever credits are used in the game. When the trader is a person,
@@ -57,10 +47,20 @@
          * @param item The item sold
          */
         onSell?(game: IGame, item: IItem): void;
+
+                /**
+         * The collection of items the trader will buy or that can be put in the store.
+         */
+        sell?: IStock;
+
+        /**
+         * The collection of items the trader has to offer or that can be taken from the store.
+         */
+        buy?: IStock;
     }
 
     /**
-     * The options to configure a collection of items available to buy or sell.
+     * The base properties to configure a collection of items available to buy or sell.
      */
     export interface IStock {
         /**
@@ -72,11 +72,6 @@
          * The text to show to the player when there are no items available for buying or selling.
          */
         emptyText?: string;
-
-        /**
-         * The items available for buying or selling.
-         */
-        items?: ICollection<IItem>;
 
         /**
          * A number or a function to generate a number dynamically that is used to modify the price of items to buy or sell.
@@ -96,5 +91,10 @@
          * The maximum number of items to select for buying or selling using the item selector.
          */
         maxItems?: number;
+
+        /**
+         * The items available for buying or selling.
+         */
+        items?: ICollection<IItem>;
     }
 }

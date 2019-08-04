@@ -1,15 +1,15 @@
 ﻿namespace StoryScript {
     export interface ILocationService {
         init(game: IGame, buildWorld?: boolean): void;
-        saveWorld(locations: ICompiledCollection<ILocation, ICompiledLocation>): void;
-        copyWorld(): ICompiledCollection<ILocation, ICompiledLocation>;
+        saveWorld(locations: ICollection<ICompiledLocation>): void;
+        copyWorld(): ICollection<ICompiledLocation>;
         changeLocation(location: string | (() => ILocation), travel: boolean, game: IGame): void;
     }
 }
 
 namespace StoryScript {
     export class LocationService implements ILocationService {
-        private pristineLocations: ICompiledCollection<ILocation, ICompiledLocation>;
+        private pristineLocations: ICollection<ICompiledLocation>;
         private dynamicLocations: boolean = false;
 
         constructor(private _dataService: IDataService, private _conversationService: IConversationService, private _rules: IRules, private _game: IGame, private _definitions: IDefinitions) {
@@ -24,12 +24,12 @@ namespace StoryScript {
             game.definitions.dynamicLocations = self.dynamicLocations;
         }
 
-        saveWorld = (locations: ICompiledCollection<ILocation, ICompiledLocation>) => {
+        saveWorld = (locations: ICollection<ICompiledLocation>) => {
             var self = this;
             self._dataService.save(DataKeys.WORLD, locations, self.pristineLocations);
         }
 
-        copyWorld = (): ICompiledCollection<ILocation, ICompiledLocation> => {
+        copyWorld = (): ICollection<ICompiledLocation> => {
             var self = this;
             return self._dataService.copy(self._game.locations, self.pristineLocations);
         }
@@ -56,9 +56,9 @@ namespace StoryScript {
 
             // In dynamic mode, refresh the location on every browser reload.
             // Todo: should descriptions be refreshed this way for default mode as well?
-            if (!travel && self._game.definitions.dynamicLocations) {
-                self._game.currentLocation.descriptions = null;
-                self._game.currentLocation.text = null;
+            if (!travel && game.definitions.dynamicLocations) {
+                game.currentLocation.descriptions = null;
+                game.currentLocation.text = null;
             }
 
             self.loadLocationDescriptions(game);
@@ -148,46 +148,30 @@ namespace StoryScript {
             }
         }
 
-        private loadWorld(buildWorld: boolean): ICompiledCollection<ILocation, ICompiledLocation> {
+        private loadWorld(buildWorld: boolean): ICollection<ICompiledLocation> {
             var self = this;
 
             const locations = self.getLocations(buildWorld);
 
             locations.forEach(function (location) {
                 self.initDestinations(location);
-
-                createReadOnlyCollection(location, 'features', location.features || <any>[]);
-                location.features.push = (<any>location.features.push).proxy(self.addFeature, self._game);
-
-                createReadOnlyCollection(location, 'actions', <any>location.actions || []);
-                location.actions.push = (<any>location.actions.push).proxy(self.addAction, self._game);
-
-                createReadOnlyCollection(location, 'combatActions', <any>location.combatActions || []);
-                location.combatActions.push = (<any>location.combatActions.push).proxy(self.addAction, self._game);
-
-                createReadOnlyCollection(location, 'persons', location.persons || <any>[]);
-                createReadOnlyCollection(location, 'enemies', location.enemies || <any>[]);
-                createReadOnlyCollection(location, 'items', location.items || <any>[]);
-
-                self.createActiveCollections(location);
-
-                addProxy(location, 'enemy', self._game, self._rules);
+                location.features.remove = location.features.remove.proxy(self.removeFeature, self._game);
             });
 
             return locations;
         }
 
-        private getLocations(buildWorld: boolean): ICompiledCollection<ILocation, ICompiledLocation> {
+        private getLocations(buildWorld: boolean): ICollection<ICompiledLocation> {
             var self = this;
-            var locations: ICompiledCollection<ILocation, ICompiledLocation> = null;
+            var locations = <ICollection<ICompiledLocation>>null;
 
             if (buildWorld) {
                 self.pristineLocations = self.buildWorld();
-                locations = <ICompiledCollection<ILocation, ICompiledLocation>>self._dataService.load(DataKeys.WORLD);
+                locations = self._dataService.load(DataKeys.WORLD);
 
                 if (isEmpty(locations)) {
                     self._dataService.save(DataKeys.WORLD, self.pristineLocations, self.pristineLocations);
-                    locations = <ICompiledCollection<ILocation, ICompiledLocation>>self._dataService.load(DataKeys.WORLD);
+                    locations = self._dataService.load(DataKeys.WORLD);
                 }
             }
             else {
@@ -197,33 +181,12 @@ namespace StoryScript {
             return locations;
         }
 
-        private createActiveCollections(location: ICompiledLocation) {
-            Object.defineProperty(location, 'activePersons', {
-                get: function () {
-                    return location.persons.filter(e => { return !e.inactive; });
-                }
-            });
-
-            Object.defineProperty(location, 'activeEnemies', {
-                get: function () {
-                    return location.enemies.filter(e => { return !e.inactive; });
-                }
-            });
-
-            Object.defineProperty(location, 'activeItems', {
-                get: function () {
-                    return location.items.filter(e => { return !e.inactive; });
-                }
-            });
-        }
-
         private initDestinations(location: ICompiledLocation) {
             var self = this;
-            createReadOnlyCollection(location, 'destinations', location.destinations || <any>[]);
 
             // Add a proxy to the destination collection push function, to replace the target function pointer
             // with the target id when adding destinations and enemies at runtime.
-            location.destinations.push = (<any>location.destinations.push).proxy(self.addDestination, self._game);
+            location.destinations.push = location.destinations.push.proxy(self.addDestination, self._game);
 
             Object.defineProperty(location, 'activeDestinations', {
                 get: function () {
@@ -234,18 +197,18 @@ namespace StoryScript {
 
         private initTrade(game: IGame) {
             // Todo: better way to get action. Use action function name from function list?
-            if (game.currentLocation.trade && (!game.currentLocation.actions || !game.currentLocation.actions.some(a => a.type == ActionType.Trade))) {
+            if (game.currentLocation.trade && (!game.currentLocation.actions || !game.currentLocation.actions.some(a => a.actionType == ActionType.Trade))) {
 
                 game.currentLocation.actions.push({
                     text: game.currentLocation.trade.title,
-                    type: ActionType.Trade,
+                    actionType: ActionType.Trade,
                     execute: 'trade'
                     // Arguments are ignored here. These are dealt with in the trade function on the main controller.
                 });
             }
         }
 
-        private buildWorld(): ICompiledLocation[] {
+        private buildWorld(): ICollection<ICompiledLocation> {
             var self = this;
             var locations = self._definitions.locations;
             var compiledLocations = [];
@@ -253,7 +216,7 @@ namespace StoryScript {
             if (locations.length < 1)
             {
                 self.dynamicLocations = true;
-                var dynamicStartLocation = function Start () { return { name: 'Start' } };
+                var dynamicStartLocation = function Start () { return Location({ name: 'Start' }) };
 
                 locations = [
                     dynamicStartLocation
@@ -265,65 +228,22 @@ namespace StoryScript {
             return compiledLocations;
         }
 
-        private processLocations(locations: [() => ILocation], compiledLocations: ICompiledLocation[]) {
+        private processLocations(locations: (() => ILocation)[], compiledLocations: ICollection<ICompiledLocation>) {
             var self = this;
 
             for (var n in locations) {
                 var definition = locations[n];
-                var location = <ICompiledLocation><any>definitionToObject(definition, 'locations', self._definitions);
-
-                if (!self.dynamicLocations && !location.destinations) {
-                    console.log('No destinations specified for location ' + location.id);
-                }
-
+                var location = <ICompiledLocation>definition();
                 self.setDestinations(location);
-                self.compileFeatures(location);
-                self.buildEntries(location, 'enemies', self._game.helpers.getEnemy);
-                self.buildEntries(location, 'persons', self._game.helpers.getPerson);
-                self.buildEntries(location, 'items', self._game.helpers.getItem);
                 compiledLocations.push(location);
             }
         }
 
-        private buildEntries(location: ICompiledLocation, collectionName: string, instantiateFunction: Function) {
-            var self = this;
-            var collection = [];
-
-            for (var n in location[collectionName]) {
-                var name = location[collectionName][n].name;
-                var entry = name ? instantiateFunction(location[collectionName][n]) : location[collectionName][n]();
-                collection.push(entry);
-            }
-
-            location[collectionName] = collection;
-        }
-
         private setDestinations(location: ICompiledLocation) {
-            var self = this;
-
             if (location.destinations) {
                 location.destinations.forEach(destination => {
                     setDestination(destination);
                 });
-            }
-        }
-
-        private compileFeatures(location: ICompiledLocation) {
-            var self = this;
-
-            if (!isEmpty(location.features)) {
-
-                for (var i in location.features) {
-                    var feature = location.features[i];
-                    feature.id = feature.name;
-
-                    if (feature.combinations && feature.combinations.combine) {
-                        for (var j in feature.combinations.combine) {
-                            var combination = feature.combinations.combine[j];
-                            combination.target = combination.target && (<any>combination.target).name;
-                        }
-                    }
-                }
             }
         }
 
@@ -339,33 +259,26 @@ namespace StoryScript {
             originalFunction.apply(this, args);
         }
 
-        private addFeature() {
-            var self = this;
+        private removeFeature() {
             var args = [].slice.apply(arguments);
             var originalFunction = args.shift();
+            var featureId = typeof args[0] === 'function' ? args[0].name : typeof args[0] === 'object' ? args[0].id : args[0];
+            var game = <IGame>args[1];
+            var feature = game.currentLocation.features.get(featureId);
 
-            // Replace the target function pointer with the target id.
-            var feature = <IFeature>args[0];
-            feature.combinations.combine.forEach(c => c.target = c.target && (<any>c.target).name);
+            if (feature) {
+                var area = findImageMapArea(feature);
+
+                if (area) {
+                    area.parentNode.removeChild(area);
+                }
+            }
 
             args.splice(1, 1);
             originalFunction.apply(this, args);
         }
 
-        private addAction() {
-            var self = this;
-            var args = [].slice.apply(arguments);
-            var originalFunction = args.shift();
-
-            // Add the action function ids.
-            addFunctionIds(args[0], 'actions', getDefinitionKeys(self._definitions));
-            args.splice(1, 1);
-            originalFunction.apply(this, args);
-        }
-
-        private playEvents(game: IGame, events: [(game: IGame) => void]) {
-            var self = this;
-
+        private playEvents(game: IGame, events: ICollection<((game: IGame) => void)>) {
             for (var n in events) {
                 events[n](game);
             }
@@ -385,7 +298,7 @@ namespace StoryScript {
 
             self.processDescriptions(htmlDoc, game);
             self.processDynamicLocations(htmlDoc, game);
-            self.processFeatures(htmlDoc, game);
+            self.processTextFeatures(htmlDoc, game);
             self.selectLocationDescription(game);
         }
 
@@ -457,13 +370,14 @@ namespace StoryScript {
             }
         }
 
-        private processFeatures(htmlDoc: Document, game: IGame) {
-            var featureNodes = htmlDoc.getElementsByTagName("feature");
+        private processTextFeatures(htmlDoc: Document, game: IGame) {
+            var featureNodes = htmlDoc.getElementsByTagName('feature');
 
             if (game.currentLocation.features && game.currentLocation.features.length > 0) {
                 for (var i = 0; i < featureNodes.length; i++) {
-                    var node = featureNodes[i];
+                    const node = featureNodes[i];
                     var nameAttribute = node.attributes['name'] && node.attributes['name'].nodeValue;
+                    var displayNameAttribute = node.attributes['displayname'] && node.attributes['displayname'].nodeValue;
 
                     if (!nameAttribute) {
                         throw new Error('There is no name attribute for a feature node for location ' + game.currentLocation.id + '.');
@@ -471,11 +385,13 @@ namespace StoryScript {
 
                     nameAttribute = nameAttribute.toLowerCase();
 
-                    if (!game.currentLocation.features.some(f => f.name.toLowerCase() === nameAttribute)) {
+                    if (!game.currentLocation.features.some(f => f.id.toLowerCase() === nameAttribute)) {
                         console.log('There is no feature with name ' + nameAttribute + ' for location ' + game.currentLocation.id + '.');
                     }
 
-                    game.currentLocation.features.filter(f => f.name.toLowerCase() === nameAttribute)[0].description = node.innerHTML;
+                    var feature = game.currentLocation.features.filter(f => f.id.toLowerCase() === nameAttribute)[0];
+                    feature.name = displayNameAttribute || feature.name;
+                    feature.description = node.innerHTML;
                 }
             }
         }
@@ -502,8 +418,9 @@ namespace StoryScript {
 
     function addKeyAction(game: IGame, destination: IDestination) {
         if (destination.barrier && destination.barrier.key) {
+            var keyEntity = typeof destination.barrier.key === 'function' ? destination.barrier.key() : destination.barrier.key;
             var existingAction = null;
-            var keyActionHash = createFunctionHash((<any>destination.barrier.key).open.action);
+            var keyActionHash = createFunctionHash(keyEntity.open.action);
 
             if (destination.barrier.actions) {
                 destination.barrier.actions.forEach(x => {
@@ -529,13 +446,11 @@ namespace StoryScript {
     }
 
     function setDestination(destination: IDestination) {
-        var self = this;
-
         // Replace the function pointers for the destination targets with the function keys.
         // That's all that is needed to navigate, and makes it easy to save these targets.
         // Note that dynamically added destinations already have a string as target so use that one.
         // Also set the barrier selected actions to the first one available for each barrier.
-        // Further, instantiate any keys present and replace combine functions with their target ids.
+        // Further, replace combine functions with their target ids.
         destination.target = (destination.target && (<any>destination.target).name) || destination.target;
 
         if (destination.barrier) {
@@ -543,16 +458,48 @@ namespace StoryScript {
                 destination.barrier.selectedAction = destination.barrier.actions[0];
             }
 
-            if (destination.barrier.key) {
-                (<any>destination.barrier).key = definitionToObject(destination.barrier.key, 'items', self.definitions);
-            }
-
             if (destination.barrier.combinations && destination.barrier.combinations.combine) {
                 for (var n in destination.barrier.combinations.combine) {
                     var combination = destination.barrier.combinations.combine[n];
-                    combination.target = combination.target && (<any>combination.target).name;
+                    combination.tool = combination.tool && (<any>combination.tool).name;
                 }
             }
         }
+    }
+
+    function findImageMap(feature: IFeature) {
+        var mapElement = <HTMLMapElement>null;
+
+        if (feature && feature.map) {
+            var imageMaps = document.getElementsByTagName("map");
+
+            for (var i = 0; i < imageMaps.length; i++) {
+                var map = <HTMLMapElement>imageMaps[i];
+                
+                if (map.name && map.name.toLowerCase() === feature.map.toLowerCase()) {
+                    mapElement = map;
+                }
+            }
+        }
+
+        return mapElement;
+    }
+
+    function findImageMapArea(feature: IFeature) {
+        var area = <HTMLAreaElement>null;
+        var map = findImageMap(feature);
+
+        if (map) {
+            map.childNodes.forEach(n => {
+                var attributes = (<any>n).attributes;
+                var areaName = attributes['name'] && attributes['name'].nodeValue;
+                
+                if (areaName.toLowerCase() === feature.id) {
+                    area = <HTMLAreaElement>n;
+                }
+            });
+        }
+
+        return area;
     }
 }

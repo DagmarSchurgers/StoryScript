@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Items {
-    export function Parchment(): StoryScript.IKey {
-        return {
+    export function Parchment() {
+        return Key( {
             name: 'Old Parchment',
             damage: '0',
             equipmentType: StoryScript.EquipmentType.Miscellaneous,
@@ -11,6 +11,6 @@
                     game.logToLocationLog(game.currentLocation.descriptions['readparchment']);
                 })
             }         
-        }
+        });
     }
 }

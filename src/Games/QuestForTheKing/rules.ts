@@ -363,16 +363,17 @@
             return character;
         }
 
-        fight = (game: IGame, enemy: ICompiledEnemy): void => {
+        fight = (game: IGame, enemy: IEnemy): void => {
             var self = this;
            game.combatLog = [];
             var damage =game.helpers.rollDice('1d6') +game.character.strength +game.helpers.calculateBonus(game.character, 'damage');
-            var combatText =game.character.equipment.rightHand ?game.character.equipment.rightHand.attackText : '';
-            combatText =game.character.equipment.leftHand ? (combatText ? combatText + '. ' : '') +game.character.equipment.leftHand.attackText : combatText;
+            var leftHandCombatText= game.character.equipment.leftHand ? game.character.equipment.leftHand.attackText : '';
+            var rightHandCombatText = game.character.equipment.rightHand ? game.character.equipment.rightHand.attackText : '';
+            var combatText = leftHandCombatText && rightHandCombatText && game.character.equipment.leftHand.id !== game.character.equipment.rightHand.id ? leftHandCombatText + '. ' + rightHandCombatText : leftHandCombatText || rightHandCombatText;
             enemy.hitpoints -= damage;
 
             if (combatText) {
-               game.logToCombatLog(combatText);
+               game.logToCombatLog(combatText + '.');
             }
 
            game.logToCombatLog('You do ' + damage + ' damage to the ' + enemy.name + '!');
@@ -388,7 +389,7 @@
                 }
             }
 
-           game.currentLocation.activeEnemies.filter((enemy: ICompiledEnemy) => { return enemy.hitpoints > 0; }).forEach(function (enemy) {
+           game.currentLocation.activeEnemies.filter((enemy: IEnemy) => { return enemy.hitpoints > 0; }).forEach(function (enemy) {
                 var enemyDamage =game.helpers.rollDice(enemy.attack) +game.helpers.calculateBonus(enemy, 'damage');
                game.logToCombatLog('The ' + enemy.name + ' does ' + enemyDamage + ' damage!');
                game.character.currentHitpoints -= enemyDamage;
@@ -457,7 +458,7 @@
                 null;
         }
 
-        private isEntityActive = (game: IGame, entity: IItem | ICompiledEnemy | IDestination): boolean => {
+        private isEntityActive = (game: IGame, entity: IItem | IEnemy | IDestination): boolean => {
             return (!entity.activeNight && !entity.activeDay) || (entity.activeNight && game.worldProperties.isNight) || (entity.activeDay && game.worldProperties.isDay)
         }
     }

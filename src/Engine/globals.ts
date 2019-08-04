@@ -29,13 +29,15 @@
 
         // This allows deserializing functions added at runtime without using eval.
         // Found at https://stackoverflow.com/questions/7650071/is-there-a-way-to-create-a-function-from-a-string-with-javascript
-        if (typeof String.prototype.parseFunction != 'function') {
+        if (typeof String.prototype.parseFunction !== 'function') {
             (String.prototype).parseFunction = function () {
-                var funcReg = /function *[a-zA-Z]{0,}\(([^()]*)\)[ \n\t]*{(.*)}/gmi;
-                var match = funcReg.exec(this.replace(/\n/g, ' '));
+                var text = this.toString();
+                var funcReg = /function[ ]{0,}([a-zA-Z0-9]{0,})(\([\w\d, ]{0,}\))[ \n\t]*({.*})/gmis;       
+                var match = funcReg.exec(text);
         
                 if (match) {
-                    return new Function(<any>(match[1].split(',')), match[2]);
+                    var args = match[2].substring(1, match[2].length - 1);
+                    return new Function(args, match[3]);
                 }
         
                 return null;
@@ -70,10 +72,11 @@
         if ((<any>Array.prototype).remove === undefined) {
             Object.defineProperty(Array.prototype, 'remove', {
                 enumerable: false,
+                writable: true,
                 value: function (item: any) {
                     // Need to cast to any for ES5 and lower
                     var index = (<any>Array.prototype).findIndex.call(this, function (x) {
-                        return x === item || (typeof item === 'function' && item.name === x.id) || (item.id && x.id && item.id === x.id) || item === x.id;
+                        return x === item || (typeof item === 'function' && item.name.toLowerCase() === x.id) || (item.id && x.id && item.id.toLowerCase() === x.id.toLowerCase()) || item === x.id;
                     });
 
                     if (index != -1) {
@@ -123,9 +126,9 @@
         return Array.prototype.filter.call(array, matchById(id));
     }
 
-    function matchById(id) {
-        return function (x) {
-            return x.id.toLowerCase() === id.toLowerCase() || (x.target && x.target === id || (typeof x.target === 'function' && x.target.name === id));
+    function matchById(id: string) {
+        return function (x: any) {
+            return x.id.toLowerCase() === id.toLowerCase() || (x.target && x.target === id || (typeof x.target === 'function' && x.target.name.toLowerCase() === id));
         };
     }
 }

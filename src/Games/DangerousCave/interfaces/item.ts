@@ -1,7 +1,9 @@
 ﻿namespace DangerousCave {
-    export interface IItem extends StoryScript.IItem {
-        damage?: string;
-        defense?: number;
-        charges?: number;
+    export function Item(entity: IItem): IItem {
+        return StoryScript.Item(entity);
+    }
+
+    export interface IItem extends IFeature, StoryScript.IItem {
+        // Add game-specific item properties here
     }
 }

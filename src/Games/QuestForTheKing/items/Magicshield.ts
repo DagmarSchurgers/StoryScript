@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Items {
-    export function Magicshield(): IItem {
-        return {
+    export function Magicshield() {
+        return Item({
             name: 'Magic Shield Spell',
             damage: '2',
             equipmentType: StoryScript.EquipmentType.LeftHand,
@@ -8,6 +8,6 @@
             arcane: true,
             value: 15,
             itemClass: Class.Wizard
-        }
+        });
     }
 }

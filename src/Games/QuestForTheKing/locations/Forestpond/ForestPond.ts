@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function ForestPond(): StoryScript.ILocation {
-        return {
+    export function ForestPond() {
+        return Location({
             name: 'The Forest Pond',
             destinations: [
                 {
@@ -8,13 +8,12 @@
                     target: Locations.Quest1map2
                 }              
             ],
-                enemies: [
-                    Enemies.DarkDryad
-                    
+            enemies: [
+                Enemies.DarkDryad()
             ],
-                items: [
-                    Items.Magicshield,
-                ]
-        }
+            items: [
+                Items.Magicshield(),
+            ]
+        });
     }
 }    

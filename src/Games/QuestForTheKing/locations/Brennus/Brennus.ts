@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Brennus(): ILocation {
-        return {
+    export function Brennus() {
+        return Location({
             name: 'Brennus',
             destinations: [
                 {
@@ -20,7 +20,7 @@
                 },
             ],
             enemies: [
-                Enemies.Brennus        
+                Enemies.Brennus()  
             ],
             enterEvents: [
                 (game: IGame) => {
@@ -29,6 +29,6 @@
                     }
                 }
             ]
-        }
+        });
     }
 }    

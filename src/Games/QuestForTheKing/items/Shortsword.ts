@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Items {
-    export function Shortsword(): IItem {
-        return {
+    export function Shortsword() {
+        return Item({
             name: 'Shortsword',
             damage: '2',
             equipmentType: StoryScript.EquipmentType.LeftHand,
@@ -8,6 +8,6 @@
             value: 15,
             attackText: 'You swing your shortsword',
             itemClass: [ Class.Rogue, Class.Warrior ]
-        }
+        });
     }
 }

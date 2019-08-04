@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Castlequestdone(): StoryScript.ILocation {
-        return {
+    export function Castlequestdone() {
+        return Location({
             name: 'Returned with the Flower',
             destinations: [
                 {
@@ -9,8 +9,8 @@
                 }
             ],
             items: [
-                Items.Beesting,
+                Items.Beesting(),
             ]
-        }
+        });
     }
 }

@@ -14,7 +14,7 @@
          * @param game The game object
          * @param person The person the player is having the conversation with
          */
-        selectActiveNode?(game: IGame, person: ICompiledPerson): IConversationNode;
+        selectActiveNode?(game: IGame, person: IPerson): IConversationNode;
 
         /**
          * True if reply options that the player cannot choose are to be displayed but unselectable, false to just hide them.
@@ -24,7 +24,7 @@
         /**
          * The actions that can be triggered from the conversation.
          */
-        actions?: { [name: string]: (game: IGame, person: ICompiledPerson) => void }
+        actions?: { [name: string]: (game: IGame, person: IPerson) => void }
     }
 
     /**
@@ -34,7 +34,7 @@
         /**
          * The nodes that make up this conversation.
          */
-        nodes?: ICollection<IConversationNode>;
+        nodes?: IConversationNode[];
 
         /**
          * The node currently active in the conversation.
@@ -89,7 +89,7 @@
         /**
          * The settings for this reply.
          */
-        options?: ICollection<IConversationReply>;
+        options?: IConversationReply[];
     }
 
     /**

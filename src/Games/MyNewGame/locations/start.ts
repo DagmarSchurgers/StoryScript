@@ -1,6 +1,6 @@
 ﻿namespace MyNewGame.Locations {
-    export function Start(): ILocation {
-        return {
+    export function Start() {
+        return Location({
             name: 'Home',
             descriptionSelector: (game: IGame) => {
                 var date = new Date();
@@ -27,8 +27,8 @@
                 }
             ],
             persons: [
-                Persons.Friend
+                Persons.Friend()
             ]
-        }
+        });
     }
 }

@@ -1,6 +1,6 @@
 ﻿module QuestForTheKing.Locations {
-    export function Gods(): StoryScript.ILocation {
-        return {
+    export function Gods() {
+        return Location({
             name: 'Gods of Idunia',
             destinations: [
                 {
@@ -28,6 +28,6 @@
                     target: Locations.Lessersisters
                 }        
             ]
-        }
+        });
     }
 }

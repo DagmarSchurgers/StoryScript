@@ -1,13 +1,13 @@
 ﻿namespace RidderMagnus.Locations {
-    export function Kelder(): ILocation {
-        return {
+    export function Kelder() {
+        return Location({
             name: 'De Kelder',
             sluipCheck: 4,
             //Bij eerste bezoek: er komt hier als event eenmalig een dire rat, tenzij je succesvol sluipt. 
             //Met zoeken is er een ring te vinden. 
             //Als de ring al gevonden is, levert zoeken vooral ratten op.
             enemies: [
-                Enemies.ReusachtigeRat
+                Enemies.ReusachtigeRat()
             ],
             destinations: [
                 {
@@ -46,7 +46,7 @@
                     }
                 }
             ]
-        }
+        });
     }
 }
 
