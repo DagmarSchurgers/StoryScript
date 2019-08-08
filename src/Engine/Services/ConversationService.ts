@@ -1,6 +1,6 @@
 namespace StoryScript {
     export interface IConversationService {
-        loadConversations(game: IGame): void;
+        loadConversations(): void;
         initConversation(): void;
         answer(node: IConversationNode, reply: IConversationReply): void;
         getLines(nodeOrReply: IConversationNode | IConversationReply): string;
@@ -9,17 +9,17 @@ namespace StoryScript {
 
 namespace StoryScript {
     export class ConversationService implements IConversationService {
-        constructor(private _dataService: IDataService, private _game: IGame, private _rules: IRules, private _texts: IInterfaceTexts) {
+        constructor(private _dataService: IDataService, private _game: IGame) {
         }
 
-        loadConversations = (game: IGame): void => {
+        loadConversations = (): void => {
             var self = this;
 
-            if (!game.currentLocation.persons) {
+            if (!self._game.currentLocation.persons) {
                 return;
             }
 
-            game.currentLocation.persons.filter(p => p.conversation && !p.conversation.nodes).forEach((person) => {
+            self._game.currentLocation.persons.filter(p => p.conversation && !p.conversation.nodes).forEach((person) => {
                 var htmlDoc = self.loadConversationHtml(person);
                 var defaultReply = self.getDefaultReply(htmlDoc, person);
                 var conversationNodes = htmlDoc.getElementsByTagName("node");
@@ -42,7 +42,6 @@ namespace StoryScript {
                 return;
             }
 
-            activeNode.active = true;
             person.conversation.activeNode = activeNode;
             self.initReplies(person);
             self.setReplyStatus(person.conversation, activeNode);
@@ -235,22 +234,19 @@ namespace StoryScript {
                 return null;
             }
 
-            var activeNode = person.conversation.activeNode;
+            var conversation = person.conversation;
+            var activeNode = conversation.activeNode;
 
             if (!activeNode) {
-                activeNode = person.conversation.selectActiveNode ? person.conversation.selectActiveNode(self._game, person) : null;
+                activeNode = conversation.selectActiveNode ? conversation.selectActiveNode(self._game, person) : null;
             }
 
             if (!activeNode) {
-                activeNode = person.conversation.nodes.filter((node) => { return node.active; })[0];
+                activeNode = conversation.nodes.filter((node) => { return node.node && conversation.startNode && node.node.toLowerCase() === person.conversation.startNode.toLowerCase(); })[0];
             }
 
             if (!activeNode) {
-                activeNode = person.conversation.nodes.filter((node) => { return node.start; })[0];
-            }
-
-            if (!activeNode) {
-                activeNode = person.conversation.nodes[0];
+                activeNode = conversation.nodes[0];
             }
 
             return activeNode;
@@ -285,9 +281,8 @@ namespace StoryScript {
             }
 
             if (reply.setStart) {
-                person.conversation.nodes.forEach(n => n.start = false);
                 var startNode = person.conversation.nodes.filter((node) => { return node.node == reply.setStart; })[0];
-                startNode.start = true;
+                person.conversation.startNode = startNode.node;
             }
 
             if (reply.linkToNode) {
@@ -295,10 +290,6 @@ namespace StoryScript {
                 self.setReplyStatus(person.conversation, person.conversation.activeNode);
             }
             else {
-                person.conversation.nodes.forEach((node) => {
-                    node.active = false;
-                });
-
                 person.conversation.activeNode = null;
             }
         }
@@ -318,7 +309,7 @@ namespace StoryScript {
                     console.log('Invalid reply requirement for node ' + activeNode.node + '!');
                 }
 
-                isAvailable = self.checkReplyRequirements(self._game, activeNode, type, value);
+                isAvailable = self.checkReplyRequirements(activeNode, type, value);
 
                 if (!isAvailable) {
                     break;
@@ -328,17 +319,18 @@ namespace StoryScript {
             return isAvailable;
         }
 
-        private checkReplyRequirements(game: IGame, activeNode: IConversationNode, type: string, value: string): boolean {
+        private checkReplyRequirements(activeNode: IConversationNode, type: string, value: string): boolean {
+            var self = this;
             var isAvailable = true;
 
             switch (type) {
                 case 'item': {
                     // Check item available. Item list first, equipment second.
-                    var hasItem = game.character.items.get(value) != undefined;
+                    var hasItem = self._game.character.items.get(value) != undefined;
 
                     if (!hasItem) {
-                        for (var i in game.character.equipment) {
-                            var slotItem = <IItem>game.character.equipment[i];
+                        for (var i in self._game.character.equipment) {
+                            var slotItem = <IItem>self._game.character.equipment[i];
                             hasItem = slotItem != undefined && slotItem != null && slotItem.id != undefined && slotItem.id.toLowerCase() === value;
                         }
                     }
@@ -347,7 +339,7 @@ namespace StoryScript {
                 } break;
                 case 'location': {
                     // Check location visited
-                    var location = game.locations.get(value);
+                    var location = self._game.locations.get(value);
 
                     if (!location) {
                         console.log('Invalid location ' + value + ' for reply requirement for node ' + activeNode.node + '!');
@@ -359,20 +351,20 @@ namespace StoryScript {
                 case 'quest-done':
                 case 'quest-complete': {
                     // Check quest start, quest done or quest complete.
-                    var quest = game.character.quests.get(value);
+                    var quest = self._game.character.quests.get(value);
                     isAvailable = quest != undefined &&
                         (type === 'quest-start' ? true : type === 'quest-done' ?
-                            quest.checkDone(game, quest) : quest.completed);
+                            quest.checkDone(self._game, quest) : quest.completed);
                 } break;
                 default: {
                     // Check attributes
-                    var attribute = game.character[type];
+                    var attribute = self._game.character[type];
 
                     if (!attribute) {
                         console.log('Invalid attribute ' + type + ' for reply requirement for node ' + activeNode.node + '!');
                     }
 
-                    isAvailable = isNaN(game.character[type]) ? game.character[type] === value : parseInt(game.character[type]) >= parseInt(value);
+                    isAvailable = isNaN(self._game.character[type]) ? self._game.character[type] === value : parseInt(self._game.character[type]) >= parseInt(value);
                 } break;
             }
 
@@ -399,25 +391,31 @@ namespace StoryScript {
 
             if (start) {
                 quest = person.quests.get(reply[type]);
-                quest.issuedBy = person.id;
-                self._game.character.quests.push(quest);
-                person.quests.remove(quest);
-                quest.progress = quest.progress || {};
 
-                if (quest.start) {
-                    quest.start(self._game, quest, person);
+                if (!quest.started) {
+                    quest.issuedBy = person.id;
+                    self._game.character.quests.push(quest);
+                    person.quests.remove(quest);
+                    quest.progress = quest.progress || {};
+
+                    if (quest.start) {
+                        quest.start(self._game, quest, person);
+                    }
+
+                    quest.started = true;
+                    quest.completed = false;
                 }
-
-                quest.completed = false;
             }
             else {
                 quest = self._game.character.quests.get(reply[type]);
 
-                if (quest.complete) {
-                    quest.complete(self._game, quest, person);
-                }
+                if (!quest.completed) {
+                    if (quest.complete) {
+                        quest.complete(self._game, quest, person);
+                    }
 
-                quest.completed = true;
+                    quest.completed = true;
+                }
             }
         }
     }

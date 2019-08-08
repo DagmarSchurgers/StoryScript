@@ -50,12 +50,12 @@ namespace StoryScript {
             self.processDestinations(game);
             self.saveLocations(game);
 
-            if (self._rules.enterLocation) {
-                self._rules.enterLocation(game, game.currentLocation, travel);
+            if (self._rules.exploration && self._rules.exploration.enterLocation) {
+                self._rules.exploration.enterLocation(game, game.currentLocation, travel);
             }
 
             // In dynamic mode, refresh the location on every browser reload.
-            // Todo: should descriptions be refreshed this way for default mode as well?
+            // Todo: should descriptions be refreshed this way for default mode as well? Combine with game service method doing the same.
             if (!travel && game.definitions.dynamicLocations) {
                 game.currentLocation.descriptions = null;
                 game.currentLocation.text = null;
@@ -64,7 +64,7 @@ namespace StoryScript {
             self.loadLocationDescriptions(game);
             self.initTrade(game);
             self.playEnterEvents(game);
-            self._conversationService.loadConversations(game);
+            self._conversationService.loadConversations();
         }
 
         private switchLocation(game: IGame, location: string | (() => ILocation)): boolean {
@@ -139,9 +139,13 @@ namespace StoryScript {
         private playEnterEvents(game: IGame) {
             var self = this;
 
-            // If the player hasn't been here before, play the location events.
-            if (!game.currentLocation.hasVisited && game.currentLocation.enterEvents) {
-                self.playEvents(game, game.currentLocation.enterEvents);
+            // If the player hasn't been here before, play the location events. Also update
+            // the visit statistics.
+            if (!game.currentLocation.hasVisited) {
+                if (game.currentLocation.enterEvents) {
+                    self.playEvents(game, game.currentLocation.enterEvents);
+                }
+
                 game.currentLocation.hasVisited = true;
                 game.statistics.LocationsVisited = game.statistics.LocationsVisited || 0;
                 game.statistics.LocationsVisited += 1;
@@ -155,7 +159,6 @@ namespace StoryScript {
 
             locations.forEach(function (location) {
                 self.initDestinations(location);
-                location.features.remove = location.features.remove.proxy(self.removeFeature, self._game);
             });
 
             return locations;
@@ -248,32 +251,12 @@ namespace StoryScript {
         }
 
         private addDestination() {
-            var self = this;
             var args = [].slice.apply(arguments);
             var originalFunction = args.shift();
 
             var destination = <IDestination>args[0];
             setDestination(destination);
             addKeyAction(args[1], destination);
-            args.splice(1, 1);
-            originalFunction.apply(this, args);
-        }
-
-        private removeFeature() {
-            var args = [].slice.apply(arguments);
-            var originalFunction = args.shift();
-            var featureId = typeof args[0] === 'function' ? args[0].name : typeof args[0] === 'object' ? args[0].id : args[0];
-            var game = <IGame>args[1];
-            var feature = game.currentLocation.features.get(featureId);
-
-            if (feature) {
-                var area = findImageMapArea(feature);
-
-                if (area) {
-                    area.parentNode.removeChild(area);
-                }
-            }
-
             args.splice(1, 1);
             originalFunction.apply(this, args);
         }
@@ -296,6 +279,7 @@ namespace StoryScript {
             var parser = new DOMParser();
             var htmlDoc = parser.parseFromString(descriptions, "text/html");
 
+            self.processVisualFeatures(htmlDoc, game);
             self.processDescriptions(htmlDoc, game);
             self.processDynamicLocations(htmlDoc, game);
             self.processTextFeatures(htmlDoc, game);
@@ -304,6 +288,11 @@ namespace StoryScript {
 
         private processDescriptions(htmlDoc: Document, game: IGame) {
             var descriptionNodes = htmlDoc.getElementsByTagName("description");
+
+            if (!descriptionNodes || !descriptionNodes.length) {
+                return;
+            }
+
             game.currentLocation.descriptions = {};
 
             for (var i = 0; i < descriptionNodes.length; i++) {
@@ -318,7 +307,7 @@ namespace StoryScript {
 
                 game.currentLocation.descriptions[name] = node.innerHTML;
                 game.currentLocation.name = displayNameAttribute || game.currentLocation.name;
-            }
+            }      
         }
 
         private processDynamicLocations(htmlDoc: Document, game: IGame) {
@@ -371,34 +360,73 @@ namespace StoryScript {
         }
 
         private processTextFeatures(htmlDoc: Document, game: IGame) {
-            var featureNodes = htmlDoc.getElementsByTagName('feature');
+            var self = this;
+            var featureNodes = <HTMLCollectionOf<HTMLElement>>htmlDoc.getElementsByTagName('feature');
 
             if (game.currentLocation.features && game.currentLocation.features.length > 0) {
                 for (var i = 0; i < featureNodes.length; i++) {
                     const node = featureNodes[i];
-                    var nameAttribute = node.attributes['name'] && node.attributes['name'].nodeValue;
-                    var displayNameAttribute = node.attributes['displayname'] && node.attributes['displayname'].nodeValue;
+                    const feature = self.getBasicFeatureData(game, node);
 
-                    if (!nameAttribute) {
-                        throw new Error('There is no name attribute for a feature node for location ' + game.currentLocation.id + '.');
+                    if (feature) {
+                        feature.description = node.innerHTML;
                     }
-
-                    nameAttribute = nameAttribute.toLowerCase();
-
-                    if (!game.currentLocation.features.some(f => f.id.toLowerCase() === nameAttribute)) {
-                        console.log('There is no feature with name ' + nameAttribute + ' for location ' + game.currentLocation.id + '.');
-                    }
-
-                    var feature = game.currentLocation.features.filter(f => f.id.toLowerCase() === nameAttribute)[0];
-                    feature.name = displayNameAttribute || feature.name;
-                    feature.description = node.innerHTML;
                 }
             }
+        }
+
+        private processVisualFeatures(htmlDoc: Document, game: IGame) {
+            var self = this;
+            var visualFeatureNode = htmlDoc.getElementsByTagName('visual-features')[0];
+
+            if (visualFeatureNode) {
+                game.currentLocation.features.collectionPicture = visualFeatureNode.attributes['img'] && visualFeatureNode.attributes['img'].nodeValue;
+
+                if (game.currentLocation.features && game.currentLocation.features.length > 0 && visualFeatureNode) {
+                    var areaNodes = <HTMLCollectionOf<HTMLAreaElement>>visualFeatureNode.getElementsByTagName('area');
+
+                    for (var i = 0; i < areaNodes.length; i++) {
+                        const node = areaNodes[i];
+                        const feature = self.getBasicFeatureData(game, node);
+
+                        if (feature) {
+                            feature.coords = feature.coords || node.attributes['coords'] && node.attributes['coords'].nodeValue;
+                            feature.shape = feature.shape || node.attributes['shape'] && node.attributes['shape'].nodeValue;
+                            feature.picture = feature.picture || node.attributes['img'] && node.attributes['img'].nodeValue;
+                        }
+                    }
+                }
+
+                visualFeatureNode.parentNode.removeChild(visualFeatureNode);
+            }
+        }
+
+        private getBasicFeatureData(game: IGame, node: HTMLElement): IFeature {
+            var nameAttribute = node.attributes['name'] && node.attributes['name'].nodeValue;
+            var displayNameAttribute = node.attributes['displayname'] && node.attributes['displayname'].nodeValue;
+
+            if (!nameAttribute) {
+                throw new Error('There is no name attribute for a feature node for location ' + game.currentLocation.id + '.');
+            }
+
+            nameAttribute = nameAttribute.toLowerCase();
+            var feature = game.currentLocation.features.filter(f => f.id.toLowerCase() === nameAttribute)[0];
+
+            if (!feature) {
+                return null;
+            }
+
+            feature.name = displayNameAttribute || feature.name;
+            return feature;
         }
 
         private selectLocationDescription(game: IGame) {
             var self = this;
             var selector = null;
+
+            if (!game.currentLocation.descriptions) {
+                return;
+            }
 
             // A location can specify how to select the proper selection using a descriptor selection function. If it is not specified,
             // use the default description selector function.
@@ -407,7 +435,7 @@ namespace StoryScript {
                 selector = typeof game.currentLocation.descriptionSelector == 'function' ? (<any>game.currentLocation.descriptionSelector)(game) : game.currentLocation.descriptionSelector;
                 game.currentLocation.text = game.currentLocation.descriptions[selector];
             }
-            else if (self._rules.descriptionSelector && (selector = self._rules.descriptionSelector(game))) {
+            else if (self._rules.exploration && self._rules.exploration.descriptionSelector && (selector = self._rules.exploration.descriptionSelector(game))) {
                 game.currentLocation.text = game.currentLocation.descriptions[selector] || game.currentLocation.descriptions['default'] || game.currentLocation.descriptions[0];
             }
             else {
@@ -465,41 +493,5 @@ namespace StoryScript {
                 }
             }
         }
-    }
-
-    function findImageMap(feature: IFeature) {
-        var mapElement = <HTMLMapElement>null;
-
-        if (feature && feature.map) {
-            var imageMaps = document.getElementsByTagName("map");
-
-            for (var i = 0; i < imageMaps.length; i++) {
-                var map = <HTMLMapElement>imageMaps[i];
-                
-                if (map.name && map.name.toLowerCase() === feature.map.toLowerCase()) {
-                    mapElement = map;
-                }
-            }
-        }
-
-        return mapElement;
-    }
-
-    function findImageMapArea(feature: IFeature) {
-        var area = <HTMLAreaElement>null;
-        var map = findImageMap(feature);
-
-        if (map) {
-            map.childNodes.forEach(n => {
-                var attributes = (<any>n).attributes;
-                var areaName = attributes['name'] && attributes['name'].nodeValue;
-                
-                if (areaName.toLowerCase() === feature.id) {
-                    area = <HTMLAreaElement>n;
-                }
-            });
-        }
-
-        return area;
     }
 }

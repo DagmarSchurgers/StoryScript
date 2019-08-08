@@ -1,6 +1,33 @@
 ﻿namespace StoryScript {
     export interface IRules {
         /**
+         * Rules for setting up the game.
+         */
+        setup?: ISetupRules,
+
+        /**
+         * General game rules.
+         */
+        general?: IGeneralRules,
+
+        /**
+         * Rules for the game character.
+         */
+        character?: ICharacterRules,
+
+        /**
+         * Rules for exploring.
+         */
+        exploration?: IExplorationRules,
+
+        /**
+         * Rule for combat.
+         */
+        combat?: ICombatRules
+    }
+
+    export interface ISetupRules {
+        /**
          * Run custom code to prepare the game before play, e.g. adding game-specific world properties to it.
          * @param game The game about to be started
          */
@@ -11,10 +38,28 @@
          * your game uses (e.g. 'Look at', 'Use', etc.).
          */
         getCombinationActions?(): ICombinationAction[];
+    }
+
+    export interface IGeneralRules {
+        /**
+         * This function is called when the player's score changes. Return true if you want to toggle the level-up
+         * status afterwards.
+         * @param game The active game
+         * @param change The change in score.
+         */
+        scoreChange?(game: IGame, change: number): boolean;
 
         /**
-         * Use this function to determine what character attributes should be shown on the chaarcter sheet. Return the names
-         * of the attributes (e.g. 'strength', 'currentcy').
+         * Use this function if you want to run additonal logic when determining the player's final score on game end.
+         * @param game The game about to be ended
+         */
+        determineFinalScore?(game: IGame): void;
+    }
+
+    export interface ICharacterRules {
+        /**
+         * Use this function to determine what character attributes should be shown on the character sheet. Return the names
+         * of the attributes (e.g. 'strength').
          */
         getSheetAttributes?(): string[];
 
@@ -46,6 +91,33 @@
         levelUp?(character: ICharacter, characterData: ICreateCharacter): boolean;
 
         /**
+         * Specify this function if you want to apply custom rules before allowing a player to equip an item. If the player
+         * is not allowed to equip the item, return false.
+         * @param game The active game
+         * @param character The player character
+         * @param item The item about to be equipped
+         */
+        beforeEquip?(game: IGame, character: ICharacter, item: IItem): boolean;
+
+        /**
+         * Specify this function if you want to apply custom rules before allowing a player to unequip an item. If the player
+         * is not allowed to unequip the item, return false.
+         * @param game The active game
+         * @param character The player character
+         * @param item The item about to be unequipped
+         */
+        beforeUnequip?(game: IGame, character: ICharacter, item: IItem): boolean;
+
+        /**
+         * Specify this function if you want to do something special when the player's health changes.
+         * @param game The active game
+         * @param change The change in health points. If the player is wounded, the number will be negative.
+         */
+        hitpointsChange?(game: IGame, change: number): void;
+    }
+
+    export interface IExplorationRules {
+        /**
          * When specified, this function will be called whenever the player enters a location.
          * @param game The active game
          * @param location The location the player enters
@@ -55,6 +127,16 @@
         // Todo: should there not also be a leaveLocation counterpart? Should that not be used for QuestForTheKing?
         enterLocation?(game: IGame, location: ICompiledLocation, travel?: boolean): void;
 
+        /**
+         * Specify this function if you want to run custom logic to set the description selector when selecting the description when
+         * entering a location. Return the selector string. This is useful if you for example want to show different descriptions at
+         * night.
+         * @param game The active game
+         */
+        descriptionSelector?(game: IGame): string;
+    }
+
+    export interface ICombatRules {
         /**
          * This function allows you to add custom logic to execute before combat starts.
          * @param game The active game
@@ -76,52 +158,5 @@
          * @param enemy The enemy just defeated
          */
         enemyDefeated?(game: IGame, enemy: IEnemy): void;
-
-        /**
-         * Specify this function if you want to do something special when the player's health changes.
-         * @param game The active game
-         * @param change The change in health points. If the player is wounded, the number will be negative.
-         */
-        hitpointsChange?(game: IGame, change: number): void;
-
-        /**
-         * This function is called when the player's score changes. Return true if you want to toggle the level-up
-         * status afterwards.
-         * @param game The active game
-         * @param change The change in score.
-         */
-        scoreChange?(game: IGame, change: number): boolean;
-
-        /**
-         * Use this function if you want to run additonal logic when determining the player's final score on game end.
-         * @param game The game about to be ended
-         */
-        determineFinalScore?(game: IGame): void;
-
-        /**
-         * Specify this function if you want to apply custom rules before allowing a player to equip an item. If the player
-         * is not allowed to equip the item, return false.
-         * @param game The active game
-         * @param character The player character
-         * @param item The item about to be equipped
-         */
-        beforeEquip?(game: IGame, character: ICharacter, item: IItem): boolean;
-
-        /**
-         * Specify this function if you want to apply custom rules before allowing a player to unequip an item. If the player
-         * is not allowed to unequip the item, return false.
-         * @param game The active game
-         * @param character The player character
-         * @param item The item about to be unequipped
-         */
-        beforeUnequip?(game: IGame, character: ICharacter, item: IItem): boolean;
-
-        /**
-         * Specify this function if you want to run custom logic to set the description selector when selecting the description when
-         * entering a location. Return the selector string. This is useful if you for example want to show different descriptions at
-         * night.
-         * @param game The active game
-         */
-        descriptionSelector?(game: IGame): string;
     }
 }

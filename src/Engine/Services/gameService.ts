@@ -32,8 +32,8 @@ namespace StoryScript {
             var self = this;
             self._game.helpers = self._helperService;
 
-            if (self._rules.setupGame) {
-                self._rules.setupGame(self._game);
+            if (self._rules.setup && self._rules.setup.setupGame) {
+                self._rules.setup.setupGame(self._game);
             }
 
             self.setupGame();
@@ -42,7 +42,7 @@ namespace StoryScript {
             self._game.statistics = self._dataService.load<IStatistics>(StoryScript.DataKeys.STATISTICS) || self._game.statistics || {};
             self._game.worldProperties = self._dataService.load(StoryScript.DataKeys.WORLDPROPERTIES) || self._game.worldProperties || {};
             var locationName = self._dataService.load<string>(StoryScript.DataKeys.LOCATION);
-            var characterSheet = self._rules.getCreateCharacterSheet && self._rules.getCreateCharacterSheet();
+            var characterSheet = self._rules.character && self._rules.character.getCreateCharacterSheet && self._rules.character.getCreateCharacterSheet();
             var hasCreateCharacterSteps = characterSheet && characterSheet.steps && characterSheet.steps.length > 0;
 
             if (!hasCreateCharacterSteps && !self._game.character) {
@@ -172,8 +172,6 @@ namespace StoryScript {
 
             if (description) {
                 self.processMediaTags(entity, key);
-                description = self.processCodeFeatures(entity, description);
-                self.processVisualFeatures(self._game);
             }
 
             return description;
@@ -182,8 +180,8 @@ namespace StoryScript {
         initCombat = (): void => {
             var self = this;
 
-            if (self._rules.initCombat) {
-                self._rules.initCombat(self._game, self._game.currentLocation);
+            if (self._rules.combat && self._rules.combat.initCombat) {
+                self._rules.combat.initCombat(self._game, self._game.currentLocation);
             }
 
             self._game.currentLocation.activeEnemies.forEach(enemy => {
@@ -196,12 +194,12 @@ namespace StoryScript {
         fight = (enemy: IEnemy, retaliate?: boolean) => {
             var self = this;
 
-            if (!self._rules || !self._rules.fight)
+            if (!self._rules.combat || !self._rules.combat.fight)
             {
                 return;
             }
 
-            self._rules.fight(self._game, enemy, retaliate);
+            self._rules.combat.fight(self._game, enemy, retaliate);
 
             if (enemy.hitpoints <= 0) {
                 self.enemyDefeated(enemy);
@@ -245,7 +243,7 @@ namespace StoryScript {
             // Todo: change if xp can be lost.
             if (change > 0) {
                 var character = self._game.character;
-                var levelUp = self._rules && self._rules.scoreChange && self._rules.scoreChange(self._game, change);
+                var levelUp = self._rules.general && self._rules.general.scoreChange && self._rules.general.scoreChange(self._game, change);
 
                 if (levelUp) {
                     self._game.state = StoryScript.GameState.LevelUp;
@@ -256,8 +254,8 @@ namespace StoryScript {
         hitpointsChange = (change: number): void => {
             var self = this;
 
-            if (self._rules.hitpointsChange) {
-                self._rules.hitpointsChange(self._game, change);
+            if (self._rules.character && self._rules.character.hitpointsChange) {
+                self._rules.character.hitpointsChange(self._game, change);
             }
         }
 
@@ -265,8 +263,8 @@ namespace StoryScript {
             var self = this;
 
             if (state == StoryScript.GameState.GameOver || state == StoryScript.GameState.Victory) {
-                if (self._rules.determineFinalScore) {
-                    self._rules.determineFinalScore(self._game);
+                if (self._rules.general && self._rules.general.determineFinalScore) {
+                    self._rules.general.determineFinalScore(self._game);
                 }
                 self.updateHighScore();
                 self._dataService.save(StoryScript.DataKeys.HIGHSCORES, self._game.highScores);
@@ -322,8 +320,8 @@ namespace StoryScript {
             self._game.statistics.enemiesDefeated += 1;
             self._game.currentLocation.enemies.remove(enemy);
 
-            if (self._rules.enemyDefeated) {
-                self._rules.enemyDefeated(self._game, enemy);
+            if (self._rules.combat && self._rules.combat.enemyDefeated) {
+                self._rules.combat.enemyDefeated(self._game, enemy);
             }
 
             if (enemy.onDefeat) {
@@ -512,118 +510,6 @@ namespace StoryScript {
             }
 
             return startPlay;
-        }
-
-        private processCodeFeatures(location: ICompiledLocation, description: string): string {
-            if (location.features && location.features.length > 0) {
-                var parser = new DOMParser();
-                var htmlDoc = parser.parseFromString(description, 'text/html');
-
-                var map = htmlDoc.getElementsByTagName("map")[0];
-
-                if (map) {
-                    var existingFeatures: string[] = [];
-                    map.childNodes.forEach(n => { 
-                        var name = <string>(<HTMLAreaElement>n).attributes['name'].nodeValue;
-
-                        if (name) {
-                            existingFeatures.push(name.toLowerCase());
-                        }
-                    });
-
-                    location.features.forEach(f => {
-                        if (f.shape && f.coords && existingFeatures.indexOf(f.id) < 0) {
-                            var newNode = <HTMLAreaElement>document.createElement('area');
-                            newNode.setAttribute('name', f.id);
-                            newNode.setAttribute('shape', f.shape);
-                            newNode.setAttribute('coords', f.coords);
-                            description = description.replace('</map>', newNode.outerHTML + '</map>');
-                        }
-                    });
-                }
-            }
-
-            return description;
-        }
-
-        private processVisualFeatures(game: IGame) {
-            var self = this;
-
-            // Get map, shape and coordinates information for image map features and add pictures for them.
-            // For this to work, the description needs to be updated in the browser, hence the timeout.
-            setTimeout(() => {
-                var map = document.getElementsByTagName("map")[0];
-
-                if (map) {
-                    var mapName = map.attributes['name'] && map.attributes['name'].nodeValue;
-                    var areaNodes = map.childNodes;
-
-                    for (var f = 0; f < areaNodes.length; f++) {
-                        const node = <HTMLAreaElement>areaNodes[f];
-                        var nameAttribute = node.attributes['name'] && node.attributes['name'].nodeValue;
-
-                        if (nameAttribute) {
-                            var feature = game.currentLocation.features.get(nameAttribute);
-
-                            if (feature) {
-                                if (!node.hasChildNodes()) {
-                                    var shapeAttribute = node.attributes['shape'] && node.attributes['shape'].nodeValue;
-                                    var coordsAttribute = node.attributes['coords'] && node.attributes['coords'].nodeValue;
-                                    feature.map = mapName;
-                                    feature.coords = coordsAttribute;
-                                    feature.shape = shapeAttribute;
-                                    self.addFeaturePicture(feature, coordsAttribute, node);
-                                }
-                            }
-                            else {
-                                map.removeChild(node);
-                            }
-                        }
-                    }
-                }
-            }, 0);
-        }
-
-        private addFeaturePicture(feature: IFeature, coordsAttribute: any, node: HTMLAreaElement) {
-            if (!feature.picture) {
-                return;
-            }
-    
-            var image = document.createElement('img');
-            var coords = coordsAttribute.split(",");
-            var top = null, left = null;
-    
-            if (feature.shape.toLowerCase() === 'poly') {
-                var x = [], y = [];
-    
-                for (var i = 0; i < coords.length; i++) {
-                    var value = coords[i];
-                    if (i % 2 === 0) {
-                        x.push(value);
-                    }
-                    else {
-                        y.push(value);
-                    }
-                }
-    
-                left = x.reduce(function (p, v) {
-                    return (p < v ? p : v);
-                });
-                
-                top = y.reduce(function (p, v) {
-                    return (p < v ? p : v);
-                });
-            }
-            else {
-                left = coords[0];
-                top = coords[1];
-            }
-    
-            image.src = 'resources/' + feature.picture;
-            image.style.position = 'absolute';
-            image.style.top = top + 'px';
-            image.style.left = left + 'px';
-            node.appendChild(image);
         }
 
         private updateHighScore(): void {

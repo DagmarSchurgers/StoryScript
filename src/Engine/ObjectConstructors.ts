@@ -158,6 +158,16 @@ namespace StoryScript {
                 return location.items.filter(e => { return !e.inactive; });
             }
         });
+
+        Object.defineProperty(location, 'activePerson', {
+            writable: true,
+            enumerable: false
+        });
+
+        Object.defineProperty(location, 'activeTrade', {
+            writable: true,
+            enumerable: false
+        });
     }
 
     function setReadOnlyCharacterProperties(character: ICharacter) {
@@ -199,7 +209,8 @@ namespace StoryScript {
         // Skip the stack lines Error, at CreateObject and the first at {type}, e.g. at Item.
         for (var i = 3; i < stack.length; i++) {
             var line = stack[i];
-            var functionName = line.trim().split(' ')[1];
+            // Firefox has a different formatting of the stack lines (Journal@[file_and_line]) than Chrome and Edge (at Object.Journal ([file_and_line])).
+            var functionName = line.indexOf('@') > -1 ? line.split('@')[0] : line.trim().split(' ')[1];
             functionName = functionName.replace('Object.', '').replace('Array.', '');
             var key = functionName.toLowerCase();
             

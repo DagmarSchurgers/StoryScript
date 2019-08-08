@@ -9,7 +9,7 @@
         name: string;
 
         /**
-         * The name of the person the player is pursuing this quest for.
+         * The id of the person the player is pursuing this quest for.
          */
         issuedBy?: string;
 
@@ -40,6 +40,11 @@
          * @param person The person this quest is for
          */
         complete?(game: IGame, quest: IQuest, person: IPerson): void;
+
+        /**
+         * True if the player started the quest, false otherwise.
+         */
+        started?: boolean;
 
         /**
          * True if the player completed the quest, false otherwise.
