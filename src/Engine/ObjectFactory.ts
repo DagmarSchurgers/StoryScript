@@ -150,6 +150,7 @@ namespace StoryScript {
             
             for (var n in object) {
                 if (object.hasOwnProperty(n)) {
+                    object[n] = CreateEntityProxy(object[n]);
                     collection.push(object[n]);
                 }
             }

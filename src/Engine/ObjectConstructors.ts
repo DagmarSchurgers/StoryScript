@@ -2,69 +2,57 @@ namespace StoryScript {
     var _definitions: IDefinitions = null;
     var _typeNames: string[] = null;
     var _registeredIds: Set<string> = new Set<string>();
+    var _currentEntityId: string = null;
+
+    export function CreateEntityProxy<T>(entityFunction: (() => T)): () => T {
+        return entityFunction.proxy(entityFunction, (originalFunc, ...params) => {
+            var id = params.splice(params.length - 1, 1)[0];
+            var oldId = GetCurrentEntityId();
+            SetCurrentEntityId(id);
+            var result = originalFunc.apply(this, params);
+            SetCurrentEntityId(oldId);
+            return result;
+        }, entityFunction.name);
+    }
+
+    export function GetCurrentEntityId() {
+        return _currentEntityId;
+    }
+
+    export function SetCurrentEntityId(id: string) {
+        _currentEntityId = id ? id.toLowerCase() : id;
+    }
 
     export function Location(entity: ILocation): ILocation {
-        var definitions = getDefinitions();
-        var location = CreateObject(entity, 'location');
-
-        if (location.destinations) {
-            location.destinations.forEach(d => {
-                if (d.barrier && d.barrier.key && typeof(d.barrier.key) === 'function') {
-                    d.barrier.key = d.barrier.key();
-                }
-            });
-        }
-
-        if (!definitions.dynamicLocations && !location.destinations) {
-            console.log('No destinations specified for location ' + location.name);
-        }
-
-        initCollection(location, 'actions');
-        initCollection(location, 'combatActions');
-        initCollection(location, 'destinations');
-        initCollection(location, 'features', true);
-        initCollection(location, 'items');
-        initCollection(location, 'enemies');
-        initCollection(location, 'persons');
-
-        setReadOnlyLocationProperties(location);
-
-        return location;
+        return Create('location', entity);
     }
 
     export function Enemy<T extends IEnemy>(entity: T): T {
-        return EnemyBase(entity, 'enemy');
+        return Create('enemy', entity);
     }
 
     export function Person<T extends IPerson>(entity: T): T {
-        var person = EnemyBase(entity, 'person');
-        initCollection(person, 'quests');
-        return person;
+        return Create('person', entity);
     }
 
     export function Item<T extends IItem>(entity: T): T {
-        var item = CreateObject(entity, 'item');
-        compileCombinations(item);
-        return item;
+        return Create('item', entity);
     }
 
     export function Key<T extends IKey>(entity: T): T {
-        return Item(entity);
+        return Create('item', entity);
     }
 
     export function Feature<T extends IFeature>(entity: T): IFeature {
-        var feature = CreateObject(entity, 'feature');
-        compileCombinations(feature);
-        return feature;
+        return Create('feature', entity);
     }
 
     export function Quest<T extends IQuest>(entity: T): T {
-        var item = CreateObject(entity, 'quest');
-        return item;
+        return Create('quest', entity);
     }
 
     export function Action(action: IAction): IAction {
-        return CreateObject(action, 'action');
+        return Create('action', action);
     }
 
     export function setReadOnlyProperties(key: string, data: any) {
@@ -112,7 +100,7 @@ namespace StoryScript {
         if (entity[property] && buildInline) {
             // Initialize any objects that have been declared inline (not a recommended but possible way to declare objects). Check
             // for the existence of an id property to determine whether the object is already initialized.
-            collection = (<[]>entity[property]).map((e: { id: string }) => e.id ? e : CreateObject(e, getSingular(property), buildInline));
+            collection = (<[]>entity[property]).map((e: { id: string, name: string }) => e.id ? e : Create(getSingular(property), e, e.name.toLowerCase().replace(/\s/g,'')));
         }
 
         Object.defineProperty(entity, property, {
@@ -136,8 +124,131 @@ namespace StoryScript {
 
         Object.defineProperty(readOnlyCollection, 'push', {
             writable: true,
-            value: readOnlyCollection.push.proxy(pushEntity)
+            value: readOnlyCollection.push.proxy(readOnlyCollection.push, pushEntity)
         });
+    }
+
+    function Create(type: string, entity: any, id?: string) {
+        switch (type) {
+            case 'location': {
+                return createLocation(entity);
+            } break;
+            case 'enemy': {
+                return EnemyBase(entity, 'enemy', id);
+            } break;
+            case 'person': {
+                return createPerson(entity, id);
+            } break;
+            case 'item': {
+                return createItem(entity, id);
+            } break;
+            case 'feature': {
+                return createFeature(entity, id);
+            } break;
+            case 'quest': {
+                return CreateObject(entity, 'quest', id);
+            } break;
+            case 'action': {
+                return CreateObject(entity, 'action', id);
+            }
+        }
+    }
+
+    function createLocation(entity: ILocation) {
+        var definitions = getDefinitions();
+        var location = CreateObject(entity, 'location');
+
+        if (location.destinations) {
+            location.destinations.forEach(d => {
+                if (d.barrier && d.barrier.key && typeof(d.barrier.key) === 'function') {
+                    d.barrier.key = d.barrier.key();
+                }
+            });
+        }
+
+        if (!definitions.dynamicLocations && !location.destinations) {
+            console.log('No destinations specified for location ' + location.name);
+        }
+
+        initCollection(location, 'actions');
+        initCollection(location, 'combatActions');
+        initCollection(location, 'destinations');
+        initCollection(location, 'features', true);
+        initCollection(location, 'items');
+        initCollection(location, 'enemies');
+        initCollection(location, 'persons');
+
+        setReadOnlyLocationProperties(location);
+
+        return location;
+    }
+
+    function createPerson(entity: IPerson, id?: string) {
+        var person = EnemyBase(entity, 'person', id);
+        initCollection(person, 'quests');
+        return person;
+    }
+
+    function createItem(entity: IItem, id?: string) {
+        var item = CreateObject(entity, 'item', id);
+        compileCombinations(item);
+        return item;
+    }
+
+    function createFeature(entity: IFeature, id?: string) {
+        var feature = CreateObject(entity, 'feature', id);
+        compileCombinations(feature);
+        return feature;
+    }
+
+    function EnemyBase<T extends IEnemy>(entity: T, type: string, id?: string): T {
+        var enemy = CreateObject(entity, type, id);
+        compileCombinations(enemy);
+        initCollection(enemy, 'items');
+        return enemy;
+    }
+
+    function CreateObject<T>(entity: T, type: string, id?: string)
+    {
+        var checkType = <{ id: string, type: string}><unknown>entity;
+
+        if (checkType.id || checkType.type) {
+            var propertyErrors = checkType.id && checkType.type ? ['id', 'type']
+                                    : checkType.id ? ['id'] : ['type'];
+
+            var message = propertyErrors.length > 1 ? "Properties {0} are used by StoryScript. Don't use them on your own types." 
+                                                        : "Property {0} is used by StoryScript. Don't use it on your own types.";
+
+            throw new Error(message.replace('{0}', propertyErrors.join(' and ')));
+        }
+
+        var compiledEntity: { id: string, name: string, type: string } = typeof entity === 'function' ? entity() : entity;
+        var definitions = getDefinitions();
+        
+        compiledEntity.id = id ? id : GetCurrentEntityId();
+
+        var definitionKeys = getDefinitionKeys(definitions);
+
+        addFunctionIds(compiledEntity, type, definitionKeys);
+        var plural = getPlural(type);
+
+        // Add the type to the object so we can distinguish between them in the combine functionality.
+        compiledEntity.type = plural;
+
+        if (_registeredIds.has(compiledEntity.id + '_' + compiledEntity.type + '_' +  !id)) {
+            throw new Error('Duplicate id detected: ' + compiledEntity.id + '. You cannot use names for entities declared inline that are the same as the names of stand-alone entities.');
+        }
+
+        _registeredIds.add(compiledEntity.id + '_' + compiledEntity.type);
+
+        var functions = window.StoryScript.ObjectFactory.GetFunctions();
+
+        // If this is the first time an object of this definition is created, get the functions.
+        if (!functions[plural] || !Object.getOwnPropertyNames(functions[plural]).find(e => e.startsWith((<any>compiledEntity).id))) {
+            getFunctions(plural, functions, definitionKeys, compiledEntity, null);
+        }
+
+        return <T><unknown>compiledEntity;
     }
 
     function setReadOnlyLocationProperties(location: ILocation) {
@@ -176,76 +287,6 @@ namespace StoryScript {
                 return character.items.filter(e => { return e.useInCombat; });
             }
         });
-    }
-
-    function EnemyBase<T extends IEnemy>(entity: T, type: string): T {
-        var enemy = CreateObject(entity, type);
-        compileCombinations(enemy);
-        initCollection(enemy, 'items');
-        return enemy;
-    }
-
-    function CreateObject<T>(entity: T, type: string, useNameAsId?: boolean)
-    {
-        var checkType = <{ id: string, type: string}><unknown>entity;
-
-        if (checkType.id || checkType.type) {
-            var propertyErrors = checkType.id && checkType.type ? ['id', 'type']
-                                    : checkType.id ? ['id'] : ['type'];
-
-            var message = propertyErrors.length > 1 ? "Properties {0} are used by StoryScript. Don't use them on your own types." 
-                                                        : "Property {0} is used by StoryScript. Don't use it on your own types.";
-
-            throw new Error(message.replace('{0}', propertyErrors.join(' and ')));
-        }
-
-        useNameAsId = useNameAsId === undefined ? false : useNameAsId;
-        var compiledEntity: { id: string, name: string, type: string } = typeof entity === 'function' ? entity() : entity;
-        var definitions = getDefinitions();
-        var types = getTypeNames(definitions);
-        var error = new Error();
-        var stack = error.stack.split('\n');
-
-        // Skip the stack lines Error, at CreateObject and the first at {type}, e.g. at Item.
-        for (var i = 3; i < stack.length; i++) {
-            var line = stack[i];
-            // Firefox has a different formatting of the stack lines (Journal@[file_and_line]) than Chrome and Edge (at Object.Journal ([file_and_line])).
-            var functionName = line.indexOf('@') > -1 ? line.split('@')[0] : line.trim().split(' ')[1];
-            functionName = functionName.replace('Object.', '').replace('Array.', '');
-            var key = functionName.toLowerCase();
-            
-            if (types.indexOf(key) < 0) {
-                compiledEntity.id = functionName.toLowerCase();
-                break;
-            }
-        }
-
-        if (useNameAsId || !compiledEntity.id) {          
-            compiledEntity.id = compiledEntity.name.toLowerCase().replace(/\s/g,'');
-        }
-
-        var definitionKeys = getDefinitionKeys(definitions);
-
-        addFunctionIds(compiledEntity, type, definitionKeys);
-        var plural = getPlural(type);
-
-        // Add the type to the object so we can distinguish between them in the combine functionality.
-        compiledEntity.type = plural;
-
-        if (_registeredIds.has(compiledEntity.id + '_' + compiledEntity.type + '_' +  !useNameAsId)) {
-            throw new Error('Duplicate id detected: ' + compiledEntity.id + '. You cannot use names for entities declared inline that are the same as the names of stand-alone entities.');
-        }
-
-        _registeredIds.add(compiledEntity.id + '_' + compiledEntity.type + '_' +  useNameAsId);
-
-        var functions = window.StoryScript.ObjectFactory.GetFunctions();
-
-        // If this is the first time an object of this definition is created, get the functions.
-        if (!functions[plural] || !Object.getOwnPropertyNames(functions[plural]).find(e => e.startsWith((<any>compiledEntity).id.toLowerCase()))) {
-            getFunctions(plural, functions, definitionKeys, compiledEntity, null);
-        }
-
-        return <T><unknown>compiledEntity;
     }
 
     function getDefinitions(): IDefinitions {

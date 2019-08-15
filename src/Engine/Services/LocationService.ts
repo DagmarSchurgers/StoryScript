@@ -189,7 +189,7 @@ namespace StoryScript {
 
             // Add a proxy to the destination collection push function, to replace the target function pointer
             // with the target id when adding destinations and enemies at runtime.
-            location.destinations.push = location.destinations.push.proxy(self.addDestination, self._game);
+            location.destinations.push = location.destinations.push.proxy(location.destinations.push, self.addDestination, self._game);
 
             Object.defineProperty(location, 'activeDestinations', {
                 get: function () {
@@ -219,7 +219,7 @@ namespace StoryScript {
             if (locations.length < 1)
             {
                 self.dynamicLocations = true;
-                var dynamicStartLocation = function Start () { return Location({ name: 'Start' }) };
+                var dynamicStartLocation = CreateEntityProxy( function Start () { return Location({ name: 'Start' }) });
 
                 locations = [
                     dynamicStartLocation
@@ -253,11 +253,12 @@ namespace StoryScript {
         private addDestination() {
             var args = [].slice.apply(arguments);
             var originalFunction = args.shift();
-
             var destination = <IDestination>args[0];
-            setDestination(destination);
-            addKeyAction(args[1], destination);
+            var game = <IGame>args[1];
             args.splice(1, 1);
+
+            setDestination(destination);
+            addKeyAction(game, destination);
             originalFunction.apply(this, args);
         }
 
@@ -320,7 +321,7 @@ namespace StoryScript {
             game.currentLocation.destinations.length = 0;
 
             // Add a 'back' destination for easy testing
-            if (game.previousLocation && game.previousLocation) {
+            if (game.previousLocation && game.currentLocation.id != 'start') {
                 var backLocation = {
                     id: game.previousLocation.id,
                     target: <any>game.previousLocation.id,
@@ -439,16 +440,16 @@ namespace StoryScript {
                 game.currentLocation.text = game.currentLocation.descriptions[selector] || game.currentLocation.descriptions['default'] || game.currentLocation.descriptions[0];
             }
             else {
-                game.currentLocation.text = game.currentLocation.text || game.currentLocation.descriptions['default'] || game.currentLocation.descriptions[0];
+                game.currentLocation.text = game.currentLocation.text || game.currentLocation.descriptions['default'] || game.currentLocation.descriptions[Object.keys(game.currentLocation.descriptions)[0]];
             }
         }
     }
 
     function addKeyAction(game: IGame, destination: IDestination) {
         if (destination.barrier && destination.barrier.key) {
-            var keyEntity = typeof destination.barrier.key === 'function' ? destination.barrier.key() : destination.barrier.key;
+            destination.barrier.key = typeof destination.barrier.key === 'function' ? destination.barrier.key() : destination.barrier.key;
             var existingAction = null;
-            var keyActionHash = createFunctionHash(keyEntity.open.action);
+            var keyActionHash = createFunctionHash(destination.barrier.key.open.action);
 
             if (destination.barrier.actions) {
                 destination.barrier.actions.forEach(x => {
@@ -465,7 +466,8 @@ namespace StoryScript {
                 destination.barrier.actions.splice(destination.barrier.actions.indexOf(existingAction), 1);
             }
 
-            var barrierKey = <IKey>(game.character.items.get(destination.barrier.key) || game.currentLocation.items.get(destination.barrier.key));
+            var keyId = destination.barrier.key.id;
+            var barrierKey = <IKey>(game.character.items.get(keyId) || game.currentLocation.items.get(keyId));
 
             if (barrierKey) {
                 destination.barrier.actions.push(barrierKey.open);
@@ -479,7 +481,10 @@ namespace StoryScript {
         // Note that dynamically added destinations already have a string as target so use that one.
         // Also set the barrier selected actions to the first one available for each barrier.
         // Further, replace combine functions with their target ids.
-        destination.target = (destination.target && (<any>destination.target).name) || destination.target;
+        var target = destination.target;
+        var targetName = typeof target === 'function' ? target.name || target.originalFunctionName : null;
+
+        destination.target = targetName || target;
 
         if (destination.barrier) {
             if (destination.barrier.actions && destination.barrier.actions.length > 0) {

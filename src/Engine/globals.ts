@@ -1,18 +1,22 @@
 ﻿namespace StoryScript {
     if (Function.prototype.proxy === undefined) {
         // This code has to be outside of the addFunctionExtensions to have the correct function scope for the proxy.
-        Function.prototype.proxy = function (proxyFunction: Function, ...params) {
+        Function.prototype.proxy = function (originalFunction: Function, proxyFunction: Function, ...params) {
             var self = this;
 
             return (function () {
-                var func = function () {
+                var name = originalFunction.name;
+                
+                var func = {[name]: function () {
                     var args = [].slice.call(arguments);
                     args.splice(0, 0, self);
                     return proxyFunction.apply(this, args.concat(...params));
-                };
+                }}[name];
 
                 func.isProxy = true;
 
+                // Making the proxy a named function as done above doesn't work in Edge. Use an additional property as a workaround.
+                func.originalFunctionName = name;
                 return func;
             })();
         };
