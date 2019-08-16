@@ -1,6 +1,15 @@
 namespace StoryScript {
+    export class ShowCombinationTextEvent extends Event {
+        constructor() {
+            super('showCombinationText');
+        }
+
+        combineText: string;
+        featureToRemove: string;
+    }
+
     export class MainController {
-        constructor(private _scope: ng.IScope, private _timeout: ng.ITimeoutService, private _eventListener: EventTarget, private _gameService: IGameService, private _game: IGame, private _texts: IInterfaceTexts) {
+        constructor(private _scope: ng.IScope, private _timeout: ng.ITimeoutService, private _eventListener: EventTarget, private _gameService: IGameService, private _characterService: ICharacterService, private _game: IGame, private _texts: IInterfaceTexts) {
             var self = this;
             self.game = self._game;
             self.texts = self._texts;
@@ -15,20 +24,19 @@ namespace StoryScript {
             self._scope.$watch('game.character.currentHitpoints', self.watchCharacterHitpoints);
             self._scope.$watch('game.character.score', self.watchCharacterScore);
 
-            _eventListener.addEventListener('combinationFinished', function(event) {
-                self._scope.$broadcast('showCombinationText', (<any>event).combineText);
+            _eventListener.addEventListener('combinationFinished', function(finishedEvent: StoryScript.CombinationFinishedEvent) {
+                var showEvent = new ShowCombinationTextEvent();
+                showEvent.combineText = finishedEvent.combineText;
+                showEvent.featureToRemove = finishedEvent.featureToRemove;
+                self._scope.$broadcast(showEvent.type, showEvent);
             });
 
             self.init();
         }
 
-        showCharacterSheet = () => {
+        showCharacterPane = () => {
             var self = this;
-
-            // Just check to see whether there are any character sheet elements that display anything 
-            // to determine whether or not it should be shown.
-            var sheetElement = angular.element('#character-sheet-container');
-            return sheetElement[0] && sheetElement[0].innerText;
+            return self._characterService.useCharacter || self._characterService.useBackpack;
         }
 
         game: IGame;
@@ -37,7 +45,6 @@ namespace StoryScript {
         private init() {
             var self = this;
             self._gameService.init();
-            self._gameService.initTexts(self._texts);
             self._scope.$broadcast('createCharacter');
         }
 
@@ -73,5 +80,5 @@ namespace StoryScript {
         }
     }
 
-    MainController.$inject = ['$scope', '$timeout', 'eventListener', 'gameService', 'game', 'customTexts'];
+    MainController.$inject = ['$scope', '$timeout', 'eventListener', 'gameService', 'characterService', 'game', 'customTexts'];
 }

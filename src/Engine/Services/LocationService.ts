@@ -86,7 +86,7 @@ namespace StoryScript {
                 return false;
             }
 
-            var key = typeof location == 'function' ? <string>(<any>location).name : location ? location : presentLocation.id;
+            var key = typeof location == 'function' ? location.name || location.originalFunctionName : location ? location : presentLocation.id;
             game.currentLocation = game.locations.get(key);
             return true;
         }
@@ -447,9 +447,9 @@ namespace StoryScript {
 
     function addKeyAction(game: IGame, destination: IDestination) {
         if (destination.barrier && destination.barrier.key) {
-            destination.barrier.key = typeof destination.barrier.key === 'function' ? destination.barrier.key() : destination.barrier.key;
+            var key = typeof destination.barrier.key === 'function' ? destination.barrier.key() : <IKey>game.helpers.getItem( destination.barrier.key);
             var existingAction = null;
-            var keyActionHash = createFunctionHash(destination.barrier.key.open.action);
+            var keyActionHash = createFunctionHash(key.open.action);
 
             if (destination.barrier.actions) {
                 destination.barrier.actions.forEach(x => {
@@ -466,7 +466,7 @@ namespace StoryScript {
                 destination.barrier.actions.splice(destination.barrier.actions.indexOf(existingAction), 1);
             }
 
-            var keyId = destination.barrier.key.id;
+            var keyId = key.id;
             var barrierKey = <IKey>(game.character.items.get(keyId) || game.currentLocation.items.get(keyId));
 
             if (barrierKey) {
@@ -482,11 +482,15 @@ namespace StoryScript {
         // Also set the barrier selected actions to the first one available for each barrier.
         // Further, replace combine functions with their target ids.
         var target = destination.target;
-        var targetName = typeof target === 'function' ? target.name || target.originalFunctionName : null;
-
-        destination.target = targetName || target;
+        target = typeof target === 'function' ? target.name || target.originalFunctionName : target;
+        destination.target = target && target.toLowerCase();
 
         if (destination.barrier) {
+            if (destination.barrier.key) {
+                var key = destination.barrier.key;
+                destination.barrier.key = typeof key === 'function' ? key.name || key.originalFunctionName : key;
+            }
+
             if (destination.barrier.actions && destination.barrier.actions.length > 0) {
                 destination.barrier.selectedAction = destination.barrier.actions[0];
             }
@@ -494,7 +498,8 @@ namespace StoryScript {
             if (destination.barrier.combinations && destination.barrier.combinations.combine) {
                 for (var n in destination.barrier.combinations.combine) {
                     var combination = destination.barrier.combinations.combine[n];
-                    combination.tool = combination.tool && (<any>combination.tool).name;
+                    var tool = <any>combination.tool;
+                    combination.tool = tool && (tool.name || tool.originalFunctionName).toLowerCase();
                 }
             }
         }

@@ -161,7 +161,7 @@ namespace StoryScript {
         if (location.destinations) {
             location.destinations.forEach(d => {
                 if (d.barrier && d.barrier.key && typeof(d.barrier.key) === 'function') {
-                    d.barrier.key = d.barrier.key();
+                    d.barrier.key = d.barrier.key.name || d.barrier.key.originalFunctionName;
                 }
             });
         }
@@ -233,7 +233,7 @@ namespace StoryScript {
         var plural = getPlural(type);
 
         // Add the type to the object so we can distinguish between them in the combine functionality.
-        compiledEntity.type = plural;
+        compiledEntity.type = type;
 
         if (_registeredIds.has(compiledEntity.id + '_' + compiledEntity.type + '_' +  !id)) {
             throw new Error('Duplicate id detected: ' + compiledEntity.id + '. You cannot use names for entities declared inline that are the same as the names of stand-alone entities.');
@@ -294,15 +294,6 @@ namespace StoryScript {
         return _definitions;
     }
 
-    function getTypeNames(definitions: IDefinitions): string[] {
-        if (_typeNames == null) {
-            _typeNames = getDefinitionKeys(definitions);
-            _typeNames = _typeNames.concat(['actions', 'keys']);
-        }
-
-        return _typeNames.map(t => getSingular(t).toLowerCase());
-    }
-
     function addFunctionIds(entity: any, type: string, definitionKeys: string[], path?: string) {
         if (!path) {
             path = entity.id || entity.name;
@@ -357,7 +348,7 @@ namespace StoryScript {
 
             entry.combinations.combine.forEach((combine: ICombine<() => ICombinable>) => {
                 var compiled = combine;
-                compiled.tool = compiled.tool && (<any>compiled.tool).name;
+                (<any>compiled).tool = compiled.tool && (compiled.tool.name || compiled.tool.originalFunctionName);
                 combines.push(compiled);
             });
 
