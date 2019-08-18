@@ -3,6 +3,6 @@ namespace TheMiner {
         return {
             backpack: 'Items',
             // Add your custom texts here.
-        }
+        };
     }
 }
