@@ -4,6 +4,17 @@ namespace StoryScript {
     var _registeredIds: Set<string> = new Set<string>();
     var _currentEntityId: string = null;
 
+    export function CreateEntityProxy<T>(entityFunction: (() => T)): () => T {
+        return entityFunction.proxy(entityFunction, (originalFunc, ...params) => {
+            var id = params.splice(params.length - 1, 1)[0];
+            var oldId = GetCurrentEntityId();
+            SetCurrentEntityId(id);
+            var result = originalFunc.apply(this, params);
+            SetCurrentEntityId(oldId);
+            return result;
+        }, entityFunction.name);
+    }
+
     export function GetCurrentEntityId() {
         return _currentEntityId;
     }
@@ -89,7 +100,7 @@ namespace StoryScript {
         if (entity[property] && buildInline) {
             // Initialize any objects that have been declared inline (not a recommended but possible way to declare objects). Check
             // for the existence of an id property to determine whether the object is already initialized.
-            collection = (<[]>entity[property]).map((e: { id: string, name: string }) => e.id ? e : Create(getSingular(property), e, e.name.toLowerCase().replace(/\s/g,'')));
+            collection = (<[]>entity[property]).map((e: { id: string, name: string }) => e.id ? e : Create(getSingular(property), e, getIdFromName(e)));
         }
 
         Object.defineProperty(entity, property, {
@@ -144,18 +155,17 @@ namespace StoryScript {
     }
 
     function createLocation(entity: ILocation) {
-        var definitions = getDefinitions();
         var location = CreateObject(entity, 'location');
 
         if (location.destinations) {
             location.destinations.forEach(d => {
                 if (d.barrier && d.barrier.key && typeof(d.barrier.key) === 'function') {
-                    d.barrier.key = d.barrier.key();
+                    d.barrier.key = d.barrier.key.name || d.barrier.key.originalFunctionName;
                 }
             });
         }
 
-        if (!definitions.dynamicLocations && !location.destinations) {
+        if (!location.destinations) {
             console.log('No destinations specified for location ' + location.name);
         }
 
@@ -222,7 +232,7 @@ namespace StoryScript {
         var plural = getPlural(type);
 
         // Add the type to the object so we can distinguish between them in the combine functionality.
-        compiledEntity.type = plural;
+        compiledEntity.type = type;
 
         if (_registeredIds.has(compiledEntity.id + '_' + compiledEntity.type + '_' +  !id)) {
             throw new Error('Duplicate id detected: ' + compiledEntity.id + '. You cannot use names for entities declared inline that are the same as the names of stand-alone entities.');
@@ -283,15 +293,6 @@ namespace StoryScript {
         return _definitions;
     }
 
-    function getTypeNames(definitions: IDefinitions): string[] {
-        if (_typeNames == null) {
-            _typeNames = getDefinitionKeys(definitions);
-            _typeNames = _typeNames.concat(['actions', 'keys']);
-        }
-
-        return _typeNames.map(t => getSingular(t).toLowerCase());
-    }
-
     function addFunctionIds(entity: any, type: string, definitionKeys: string[], path?: string) {
         if (!path) {
             path = entity.id || entity.name;
@@ -346,7 +347,7 @@ namespace StoryScript {
 
             entry.combinations.combine.forEach((combine: ICombine<() => ICombinable>) => {
                 var compiled = combine;
-                compiled.tool = compiled.tool && (<any>compiled.tool).name;
+                (<any>compiled).tool = compiled.tool && (compiled.tool.name || compiled.tool.originalFunctionName);
                 combines.push(compiled);
             });
 
@@ -359,9 +360,21 @@ namespace StoryScript {
     function pushEntity() {
         var args = [].slice.apply(arguments);
         var originalFunction = args.shift();
-        args[0] = typeof args[0] === 'function' ? args[0]() : args[0];
+        var entity = args[0];
+        entity = typeof entity === 'function' ? entity() : entity;
+
+        if (!entity.id && entity.name) {
+            entity.id = getIdFromName(entity);
+        }
+
+        args[0] = entity;
         originalFunction.apply(this, args);
     };
+
+    function getIdFromName<T extends { name: string, id? : string}>(entity: T): string {
+        var id = entity.name.toLowerCase().replace(/\s/g,'');
+        return id;
+    }
 
     function getFunctions(type: string, functionList: { [type: string]: { [id: string]: { function: Function, hash: number } } }, definitionKeys: string[], entity: any, parentId: any) {
         if (!parentId) {

@@ -3,6 +3,7 @@
     del = require('del'),
     jf = require('jsonfile'),
     browserSync = require('browser-sync').create(),
+    fs = require('fs'),
     ts = require('gulp-typescript'),
     plumber = require('gulp-plumber'),
     flatten = require('gulp-flatten'),
@@ -33,7 +34,7 @@ gulp.task('create-game', createGame());
 
 gulp.task('create-game-basic', createGame('basic'));
 
-gulp.task('fix-popper', fixPopper());
+gulp.task('create-location', createLocation);
 
 gulp.task('fix-popper', fixPopper());
 
@@ -43,7 +44,11 @@ gulp.task('build-game', ['delete-files', 'compile-engine'], function() {
 });
 
 gulp.task('publish-game', ['delete-published-files', 'build-game'], function() {  
-    return publishGame();
+    return publishGame(false);
+});
+
+gulp.task('publish-game-local', ['delete-published-files', 'build-game'], function() {  
+    return publishGame(true);
 });
 
 gulp.task('delete-files', function () {
@@ -73,7 +78,7 @@ gulp.task('start', ['build-game'], function () {
     }).on('change', browserSync.reload);
 
     gulp.watch(["src/UI/**/*.ts"], function (e) {
-        return compileTs('UI', e.path, compileUI);
+        return compileTs('UI', e.path, compileUI, nameSpace);
     }).on('change', browserSync.reload);
 
     gulp.watch(['src/UI/**/*.html', 'src/Games/' + nameSpace + '/ui/**/*.html'], function (e) {
@@ -118,45 +123,36 @@ function createGame(mode) {
 
     return function () {
         var gameNameSpace = getNameSpace();
-
         var templateRoot = paths.sourceroot + 'Games/_GameTemplate/';
+        var sources = [templateRoot + '**/*.*', '!' + templateRoot + '**/*.css'];
 
-        var sources = mode === 'basic' ? 
-        [
-            templateRoot + 'locations/*.html',
-            templateRoot + 'bs-config.json',
-            templateRoot + 'customTexts.ts',
-            templateRoot + 'run.ts',
-            templateRoot + 'resources/*.*',
-        ] : 
-        [
-            templateRoot + '**/*.*',
-            '!' + templateRoot + '**/*.css'
-        ];
+        if (mode === 'standard') {
+            sources.push('!' + templateRoot + 'ui/components/*');
+        }
 
         var destination = paths.sourceroot + 'Games/' + gameNameSpace;
-        var cssPath = mode == 'basic' ? 'basic-game.css' : 'game.css';
 
-        var css = gulp.src([templateRoot + 'ui/styles/' + cssPath])
+        var css = gulp.src([templateRoot + 'ui/styles/game.css'])
                     .pipe(rename('game.css'))
                     .pipe(gulp.dest(paths.sourceroot + 'Games/' + gameNameSpace + '/ui/styles'));
 
         var code = gulp.src(sources, {base: templateRoot })
-                .pipe(replace('StoryScript.Run(\'GameTemplate\', new CustomTexts().texts, new Rules())', 'StoryScript.Run(\'' + gameNameSpace + '\', new CustomTexts().texts' + (mode === 'basic' ? '' : ', new Rules()') + ')'))
+                .pipe(replace('StoryScript.Run(\'GameTemplate\',', 'StoryScript.Run(\'' + gameNameSpace + '\','))
                 .pipe(replace('namespace GameTemplate {', 'namespace ' + gameNameSpace + ' {'))
-                .pipe(replace('namespace GameTemplate.Locations {', 'namespace ' + gameNameSpace + '.Locations {'))
-                .pipe(gulp.dest(destination));
+                .pipe(replace('namespace GameTemplate.Locations {', 'namespace ' + gameNameSpace + '.Locations {'));
+        
+        code.pipe(gulp.dest(destination));
 
         return merge(css, code);
     }
 }
 
-function compileTs(type, path, compileFunc) {
+function compileTs(type, path, compileFunc, nameSpace) {
     if (path) {
         console.log('TypeScript file ' + path + ' has been changed. Compiling ' + type + '...');
     }
 
-    return compileFunc();
+    return compileFunc(nameSpace);
 }
 
 function getNameSpace() {
@@ -174,7 +170,7 @@ function buildGame(nameSpace) {
     var css = copyCss(nameSpace);
     var config = copyConfig(nameSpace);
     var ui = compileUI(nameSpace);
-    var game = compileGame(nameSpace);
+    var game = compileGame();
     var descriptions = compileGameDescriptions(nameSpace);
 
     return merge(libs, resources, css, config, ui, game, descriptions);
@@ -219,13 +215,17 @@ function addVersion(path, version) {
     path.basename = nameParts.join('.');
 }
 
-function publishGame() {
+function publishGame(local) {
+    var sourceMapRegex = /(\/[\*\/]# sourceMappingURL=\S*)(( \*\/)|\b)/g;
+
     var css = gulp.src([paths.webroot + 'css/game*.css'])
+                .pipe(replace(sourceMapRegex, ''))
                 .pipe(gulp.dest(paths.publishroot + 'css'));
 
     var js = gulp.src([paths.webroot + 'js/game*.js'])
                 .pipe(concat('game.js'))
-                //.pipe(uglify())
+                .pipe(replace(/autoBackButton\s*:[\s\w]*,/g, ''))
+                .pipe(replace(sourceMapRegex, ''))
                 .pipe(gulp.dest(paths.publishroot + 'js'));
     
     var templates = gulp.src([paths.webroot + 'js/ui-templates.js'])
@@ -242,10 +242,29 @@ function publishGame() {
                 .pipe(replace('<script src="js/game-descriptions.js"></script>', ''))
                 .pipe(replace('game.min.css', cacheBuster('game.min.css')))
                 .pipe(replace('game.js', cacheBuster('game.js')))
-                .pipe(replace('ui-templates.js', cacheBuster('ui-templates.js')))
-                .pipe(gulp.dest(paths.publishroot));
+                .pipe(replace('ui-templates.js', cacheBuster('ui-templates.js')));
+    
+    if (local) {
+        index = index.pipe(replace('="/', '="'));
+    }
+    
+    index = index.pipe(gulp.dest(paths.publishroot));
 
-    return merge(css, js, templates, resources, config, index);
+    if (local) {
+        var libraries = merge(
+            gulp.src([paths.webroot + 'js/lib/*']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'js/lib')),
+            gulp.src([paths.webroot + 'js/storyscript*.js']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'js')),
+            gulp.src([paths.webroot + 'js/ui.*.js']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'js')),
+            gulp.src([paths.webroot + 'css/lib/*']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'css/lib')),
+            gulp.src([paths.webroot + 'css/storyscript.*']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'css')),
+            gulp.src([paths.webroot + 'css/game.*']).pipe(replace(sourceMapRegex, '')).pipe(gulp.dest(paths.publishroot + 'css')));
+
+        return merge(css, js, templates, resources, config, index, libraries);
+    }
+    else
+    {
+        return merge(css, js, templates, resources, config, index);
+    }
 }
 
 function cacheBuster(fileName) {
@@ -350,7 +369,8 @@ function compileGame() {
         .pipe(plumber({ errorHandler: function(error) {
             console.log(error);
         }}))
-        .pipe(sourcemaps.init()).pipe(tsGameProject());
+        .pipe(sourcemaps.init())
+        .pipe(tsGameProject());
 
     return merge(
         tsResult.js.pipe(concat('game.js')).pipe(sourcemaps.write('./')).pipe(gulp.dest(paths.webroot + 'js')),
@@ -366,7 +386,7 @@ function compileUI(nameSpace) {
         }}))
         .pipe(sourcemaps.init())
         .pipe(tsUIProject());
-        
+ 
     var templateResult = compileUITemplates(nameSpace);
     var version = getStoryScriptVersion();
 
@@ -421,4 +441,26 @@ function compileGameDescriptions(nameSpace) {
         descriptionPipe.pipe(gulp.dest(paths.webroot + 'js/')),
         descriptionPipe.pipe(gulp.dest(paths.testroot))
     );
+}
+
+function createLocation(cb) {
+    var args = process.argv;
+    var locationName = args[3].substring(2);
+    locationName = locationName.substring(0, 1).toUpperCase() + locationName.substring(1);
+
+    var nameSpace = getNameSpace(); 
+
+    fs.readFile('./src/Games/_GameTemplate/locations/start.ts', 'utf8', function(err, text) {
+        var tsContent = text.replace('GameTemplate.Locations {', nameSpace + '.Locations {')
+                            .replace('export function Start()', 'export function ' + locationName + '()')
+                            .replace('name: \'Start\',', 'name: \'' + locationName + '\',');
+
+        fs.writeFile('./src/Games/' + nameSpace + '/locations/' + locationName + '.ts', tsContent, cb, function() {
+            fs.readFile('./src/Games/_GameTemplate/locations/Start.html', 'utf8', function(err, text) {
+                var tsContent = text.replace('Your adventure starts here!', '');
+                     
+                fs.writeFile('./src/Games/' + nameSpace + '/locations/' + locationName + '.html', tsContent, cb);
+            });
+        });
+    });
 }
