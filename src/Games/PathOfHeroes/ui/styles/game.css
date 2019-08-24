@@ -1,0 +1,13 @@
+.back-label {
+    display: none;
+}
+
+#visual-features {
+    max-height: 750px;
+}
+
+#visual-features img {
+    transition: all 1s ease 0s;
+    top: 0px;
+    left: 0px;
+}
