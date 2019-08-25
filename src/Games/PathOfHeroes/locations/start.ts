@@ -5,6 +5,9 @@ namespace PathOfHeroes.Locations {
             destinations: [
                 
             ],
+            enemies: [
+                Enemies.Tiger()
+            ],
             features:[
                 {
                     name: 'top',
