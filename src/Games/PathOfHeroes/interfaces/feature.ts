@@ -5,5 +5,6 @@ namespace PathOfHeroes {
 
     export interface IFeature extends StoryScript.IFeature {
         // Add game-specific item properties here
+        linkToLocation?: string;
     }
 }

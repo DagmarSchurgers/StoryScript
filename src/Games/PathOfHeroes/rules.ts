@@ -10,7 +10,16 @@ namespace PathOfHeroes {
                             preposition: 'to',
                             requiresTool: false,
                             failText: (game, target, tool): string => { return 'test'; },
-                            isDefault: true
+                            isDefault: true,
+                            defaultMatch: (game: IGame, target: IFeature, tool: StoryScript.ICombinable): string => {
+                                setCoordinates(game, target);
+
+                                if (target.linkToLocation) {
+                                    game.changeLocation(target.linkToLocation);
+                                }
+
+                                return 'Ok';
+                            },
                         }
                     ];
                 },
@@ -78,5 +87,14 @@ namespace PathOfHeroes {
                 }
             }
         };
+    }
+    
+    function setCoordinates(game, target: IFeature) {  
+        var coords = target.coords.split(',').map(c => parseInt(c));
+        var centerX = coords[6] - coords[0];
+        var centerY = coords[7] - coords[1];
+
+        game.worldProperties.mapLocationX = -(centerX + coords[0] - 800);
+        game.worldProperties.mapLocationY = -(centerY + coords[1] - 650);      
     }
 }
