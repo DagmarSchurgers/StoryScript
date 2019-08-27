@@ -13,6 +13,6 @@
 /src/Games/**/resources/*
 !/src/Games/**/resources/readme.txt
 /src/Games/QuestForTheKing/**/*.html
-/src/Games/LanternofWorlds/**/*.html
+#/src/Games/LanternofWorlds/**/*.html
 
 debug.log
