@@ -1,20 +1,27 @@
 namespace PathOfHeroes {
-    var _mapDimensions: {
-        width: number,
-        height: number
-    }
-
     var _temparateFeatures: StoryScript.IFeatureCollection;
 
     export function temparateFeatures() {
         if (!_temparateFeatures) {
+            var mapData = <IMapData>{
+                picture: 'tile demo.png',
+                tilePrefix: 'tm',
+                tileType: TileType.Hexagon,
+                rows: 3,
+                columns: 3,
+                startRow: 2,
+                tileHeight: 600,
+                tileWidth: 800,
+                tileGutter: 10
+            };
+
             var tileAdditions = [
                 ['12', Locations.Plains],
                 ['32', Locations.Start],
                 ['41', Locations.Water],
             ];
     
-            _temparateFeatures = createFeatureMap('tile demo.png', 'tm', 3, 3, 800, 600, TileType.Hexagon, tileAdditions);
+            _temparateFeatures = createFeatureMap(mapData, tileAdditions);
             // _temparateFeatures = [
             //     createTileFeature('top', 1, 2, Locations.Plains.name),
             //     createTileFeature('topleft', 2, 1),
@@ -40,19 +47,39 @@ namespace PathOfHeroes {
         linkToLocation: () => ILocation
     }
 
-    function createFeatureMap(mapPicture: string, prefix: string, rows: number, columns: number, tileWith: number, tileHeight: number, tileType: TileType, tileAdditions: (string | (() => ILocation))[][]): StoryScript.IFeatureCollection {
+    export interface IMapData {
+        picture: string;
+        tilePrefix: string;
+        tileType: TileType;
+        rows: number;
+        columns: number;
+        startRow: number;
+        tileWidth: number;
+        tileHeight: number;
+        tileGutter?: number;
+        height?: number;
+        width?: number;
+    } 
+
+    function createFeatureMap(mapData: IMapData, tileAdditions: (string | (() => ILocation))[][]): StoryScript.IFeatureCollection {
         var map: StoryScript.IFeatureCollection = [];
-        map.collectionPicture = mapPicture;
-        
-        for (var i = 1; i <= rows; i++) {
-            for (var j = 1; j <= columns; j++) {
-                var featureName = `${prefix}${i}${j}`;
-                map.push(createTileFeature(featureName, i, j));
+        map.collectionPicture = mapData.picture;
+
+        var divisions = (mapData.rows - 1) * 10;
+        var edgeLength = mapData.tileWidth / 2;
+
+        mapData.height = mapData.tileHeight * mapData.rows + divisions;
+        mapData.width = Math.ceil(mapData.columns / 2) * mapData.tileWidth + Math.floor(mapData.columns / 2) * edgeLength + divisions;
+            
+        for (var i = 1; i <= mapData.rows; i++) {
+            for (var j = 1; j <= mapData.columns; j++) {
+                var featureName = `${mapData.tilePrefix}${i}${j}`;
+                map.push(createTileFeature(mapData, featureName, i, j));
             }
         }
 
         tileAdditions.forEach(a => {
-            var tile = <IFeature>map.filter(t => t.name === `${prefix}${a[0]}`)[0];
+            var tile = <IFeature>map.filter(t => t.name === `${mapData.tilePrefix}${a[0]}`)[0];
 
             if (tile) {
                 var link = typeof a[1] === 'function' ? (<Function>a[1]).name : a[1].toString();
@@ -63,11 +90,11 @@ namespace PathOfHeroes {
         return map;
     }
 
-    function createTileFeature(name: string, row: number, column: number, linkToLocation?: string): IFeature {
+    function createTileFeature(mapData: IMapData, name: string, row: number, column: number, linkToLocation?: string): IFeature {
         return StoryScript.DynamicEntity(() => Feature({
                 name: name,
                 shape: 'poly',
-                coords: getTileCoordinates(row, column),
+                coords: getTileCoordinates(mapData, row, column),
                 linkToLocation: linkToLocation,
                 combinations: {
                     combine: [
@@ -79,32 +106,22 @@ namespace PathOfHeroes {
             }), name);
     }
 
-    function getTileCoordinates(row: number, column: number): string {
+    function getTileCoordinates(mapData: IMapData, row: number, column: number): string {
         // Hexagon math at https://rechneronline.de/pi/hexagon.php.       
-        var edgeLength = Constants.MAPDIMENSIONS.tileWidth / 2;
+        var edgeLength = mapData.tileWidth / 2;
         var halfEdge = edgeLength / 2;
-        var tileHeight = Constants.MAPDIMENSIONS.tileHeight;
-        var halfHeight = Constants.MAPDIMENSIONS.tileHeight / 2;
+        var halfHeight = mapData.tileHeight / 2;
 
-        if (!_mapDimensions) {
-            var divisions = (Constants.MAPDIMENSIONS.mapRows - 1) * 10;
-
-            _mapDimensions = {
-                height: tileHeight * Constants.MAPDIMENSIONS.mapRows + divisions,
-                width: Math.ceil(Constants.MAPDIMENSIONS.mapColumns / 2) * Constants.MAPDIMENSIONS.tileWidth + Math.floor(Constants.MAPDIMENSIONS.mapColumns / 2) * edgeLength + divisions
-            };
-        }
-
-        var offsetTop = Constants.MAPDIMENSIONS.startRow % 2 * halfHeight;
-        var offsetleft = halfEdge;
-        var topY = offsetTop + (row - 1) * halfHeight;
-        var topX = offsetleft + (column - 1) * (edgeLength + halfEdge);
+        var offsetTop = (mapData.startRow === 1 ? 0 : (column % 2  * -halfHeight)) + (row - 1) * mapData.tileGutter;
+        var offsetleft = (column - 1) * mapData.tileGutter * 2;
+        var topY = offsetTop + (row - 1) * mapData.tileHeight
+        var topX = offsetleft + halfEdge + (column - 1) * (edgeLength + halfEdge);
 
         var coords = [
             topX, topY, 
             topX - halfEdge, topY + halfHeight, 
-            topX, topY + tileHeight,
-            topX + edgeLength, topY + tileHeight,
+            topX, topY + mapData.tileHeight,
+            topX + edgeLength, topY + mapData.tileHeight,
             topX + edgeLength + halfEdge, topY + halfHeight,
             topX + edgeLength, topY
         ];

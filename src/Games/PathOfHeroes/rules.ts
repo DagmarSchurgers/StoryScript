@@ -60,17 +60,7 @@ namespace PathOfHeroes {
             },
 
             exploration: {
-                applyDynamicStyling: (game: IGame): StoryScript.IDynamicStyle[] => {
-                    return [
-                        {
-                            elementSelector: '#visual-features img',
-                            styles: [
-                                ['margin-top', (game.worldProperties.mapLocationY || 0).toString() + 'px'],
-                                ['margin-left', (game.worldProperties.mapLocationX || 0).toString() + 'px']
-                            ]
-                        }
-                    ]
-                }
+
             },
 
             combat: {     
@@ -89,12 +79,22 @@ namespace PathOfHeroes {
         };
     }
     
-    function setCoordinates(game, target: IFeature) {  
+    function setCoordinates(game: IGame, target: IFeature) {  
         var coords = target.coords.split(',').map(c => parseInt(c));
         var centerX = coords[6] - coords[0];
         var centerY = coords[7] - coords[1];
 
         game.worldProperties.mapLocationX = -(centerX + coords[0] - 800);
-        game.worldProperties.mapLocationY = -(centerY + coords[1] - 650);      
+        game.worldProperties.mapLocationY = -(centerY + coords[1] - 650);   
+
+        game.dynamicStyles = [
+            {
+                elementSelector: '#visual-features img',
+                styles: [
+                    ['margin-top', (game.worldProperties.mapLocationY || 0).toString() + 'px'],
+                    ['margin-left', (game.worldProperties.mapLocationX || 0).toString() + 'px']
+                ]
+            }
+        ];   
     }
 }
