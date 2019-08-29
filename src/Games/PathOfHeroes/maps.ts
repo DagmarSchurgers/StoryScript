@@ -17,8 +17,8 @@ namespace PathOfHeroes {
 
             var tileAdditions = [
                 ['12', Locations.Plains],
-                ['32', Locations.Start],
-                ['41', Locations.Water],
+                ['22', Locations.Start],
+                ['31', Locations.Water],
             ];
     
             _temparateFeatures = createFeatureMap(mapData, tileAdditions);

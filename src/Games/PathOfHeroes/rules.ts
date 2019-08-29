@@ -24,10 +24,10 @@ namespace PathOfHeroes {
                     ];
                 },
                 gameStart: (game: IGame): void => {
-                    game.worldProperties.mapCenterX = -558;
-                    game.worldProperties.mapLocationX = game.worldProperties.mapCenterX;
-                    game.worldProperties.mapCenterY = -584;
-                    game.worldProperties.mapLocationY = game.worldProperties.mapCenterY;
+                    game.worldProperties.mapLocationX = -440;
+                    game.worldProperties.mapLocationY = -540;
+
+                    setDynamicStyles(game);
                 }
             },
 
@@ -87,6 +87,10 @@ namespace PathOfHeroes {
         game.worldProperties.mapLocationX = -(centerX + coords[0] - 800);
         game.worldProperties.mapLocationY = -(centerY + coords[1] - 650);   
 
+        setDynamicStyles(game);
+    }
+
+    function setDynamicStyles(game: IGame) {
         game.dynamicStyles = [
             {
                 elementSelector: '#visual-features img',
