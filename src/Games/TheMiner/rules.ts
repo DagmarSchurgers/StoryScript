@@ -5,19 +5,29 @@ namespace TheMiner {
                 getCombinationActions: (): StoryScript.ICombinationAction[] => {
                     return [
                         { text: Constants.USE,
-                            preposition: 'on'
+                            preposition: 'on',
+                            failText: (game, target, tool): string => {
+                                return 'I can\'t do that.';
+                            }
                            },
                            { text: Constants.LOOKAT,
                             preposition: 'at',
                             requiresTool: false,
                             failText: (game, target, tool): string => {
-                                return 'You look at the ' + target.name + ', there is nothing special about it.';
+                                return 'I look at the ' + target.name + ', there is nothing special about it.';
                             }
                            },
                             {
                             text: Constants.TAKE,  
                             requiresTool: false
+                           },
+                           {
+                            text: Constants.EAT,  
+                            requiresTool: false,
+                            failText: (game, target, tool): string => {
+                                return 'I can\'t eat that!';
                            }
+                        }
                     ];
                 }
             },
@@ -33,6 +43,7 @@ namespace TheMiner {
                 getSheetAttributes: (): string[] => {
                     return [
                         // Add the character attributes that you want to show on the character sheet here
+                       
                     ];
                 },
 
