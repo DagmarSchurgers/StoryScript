@@ -22,15 +22,6 @@ namespace PathOfHeroes {
             ];
     
             _temparateFeatures = createFeatureMap(mapData, tileAdditions);
-            // _temparateFeatures = [
-            //     createTileFeature('top', 1, 2, Locations.Plains.name),
-            //     createTileFeature('topleft', 2, 1),
-            //     createTileFeature('topright', 2, 3),
-            //     createTileFeature('middle', 3, 2, Locations.Start.name),
-            //     createTileFeature('bottomleft', 4, 1, Locations.Water.name),
-            //     createTileFeature('bottom', 5, 2),
-            //     createTileFeature('bottomright', 4, 3)
-            // ];
         }
 
         // Todo: this does not get reset on game restart. Use one of the setup rules?
