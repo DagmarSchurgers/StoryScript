@@ -58,7 +58,7 @@ namespace StoryScript {
             self._conversationService.loadConversations();
 
             // Add the 'back' button for testing
-            if (game.previousLocation && game.currentLocation.id != 'start') {
+            if (self._rules.setup.autoBackButton && game.previousLocation && game.currentLocation.id != 'start') {
                 var backTestDestinationName = 'testbackdestination';
                 var backDestination = game.currentLocation.destinations.get(game.previousLocation.id) 
                                         || game.currentLocation.destinations.get(backTestDestinationName);
@@ -68,7 +68,7 @@ namespace StoryScript {
                         id: backTestDestinationName,
                         target: game.previousLocation.id,
                         name: `Back to ${game.previousLocation.name}`,
-                        style: 'back-button-for-testing'
+                        style: 'auto-back-button'
                     };
 
                     game.currentLocation.destinations.push(backLocation);
@@ -270,11 +270,14 @@ namespace StoryScript {
 
             if (!game.currentLocation.descriptions) {
                 var descriptions = self._dataService.loadDescription('locations', game.currentLocation);
-                var parser = new DOMParser();
-                var htmlDoc = parser.parseFromString(descriptions, "text/html");
 
-                self.processVisualFeatures(htmlDoc, game);
-                self.processDescriptions(htmlDoc, game);
+                if (descriptions) {
+                    var parser = new DOMParser();
+                    var htmlDoc = parser.parseFromString(descriptions, "text/html");
+
+                    self.processVisualFeatures(htmlDoc, game);
+                    self.processDescriptions(htmlDoc, game);
+                }
             }
 
             self.selectLocationDescription(game);
@@ -305,6 +308,11 @@ namespace StoryScript {
 
         private processTextFeatures(game: IGame) {
             var self = this;
+
+            if (!game.currentLocation.text) {
+                return;
+            }
+
             var parser = new DOMParser();
             var htmlDoc = parser.parseFromString(game.currentLocation.text, "text/html");
             var featureNodes = <HTMLCollectionOf<HTMLElement>>htmlDoc.getElementsByTagName('feature');
@@ -393,11 +401,11 @@ namespace StoryScript {
         if (destination.barrier && destination.barrier.key) {
             var key = typeof destination.barrier.key === 'function' ? destination.barrier.key() : <IKey>game.helpers.getItem( destination.barrier.key);
             var existingAction = null;
-            var keyActionHash = createFunctionHash(key.open.action);
+            var keyActionHash = createFunctionHash(key.open.execute);
 
             if (destination.barrier.actions) {
                 destination.barrier.actions.forEach(x => {
-                    if (createFunctionHash(x.action) === keyActionHash) {
+                    if (createFunctionHash(x.execute) === keyActionHash) {
                         existingAction = x;
                     };
                 });
