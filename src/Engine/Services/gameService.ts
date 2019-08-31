@@ -81,8 +81,17 @@ namespace StoryScript {
         startNewGame = (characterData: any): void => {
             var self = this;
             self.createCharacter(characterData);
-            self._game.changeLocation('Start');
+
+            if (self._rules.setup.gameStart) {
+                self._rules.setup.gameStart(self._game);
+            }
+
+            if (!self._game.currentLocation) {
+                self._game.changeLocation('Start');
+            }
+
             self._game.state = StoryScript.GameState.Play;
+            self.saveGame();
         }
 
         restart = (): void => {
@@ -220,9 +229,9 @@ namespace StoryScript {
                 return;
             }
 
-            var action = barrier.actions.filter((item: IBarrierAction) => { return item.name == barrier.selectedAction.name; })[0];
+            var action = barrier.actions.filter((item: IBarrierAction) => { return item.text == barrier.selectedAction.text; })[0];
             var actionIndex = barrier.actions.indexOf(action);
-            action.action(self._game, destination, barrier, action);
+            action.execute(self._game, destination, barrier, action);
             barrier.actions.splice(actionIndex, 1);
 
             if (barrier.actions.length) {
