@@ -39,7 +39,23 @@ namespace StoryScript {
                 text: ''
             };
 
-            if (!target || !combo || !combo.selectedCombinationAction) {
+            if (!target) {
+                return result;
+            }
+
+            if (!combo) {
+                var defaultAction = self.getCombinationActions().filter(c => c.isDefault)[0];
+
+                if (defaultAction) {
+                    combo = {
+                        selectedCombinationAction: defaultAction,
+                        combineText: '',
+                        selectedTool: null
+                    }
+                }
+            }
+
+            if (!combo || !combo.selectedCombinationAction) {
                 return result;
             }
 
@@ -52,15 +68,15 @@ namespace StoryScript {
                 return result;
             }
 
-            result = self.performCombination(target);
+            result = self.performCombination(target, combo);
 
             if (result.success) {
                 if (result.removeTarget) {
-                    self._game.currentLocation.features.remove(target.id);
+                    self.removeFeature(target);
                 }
 
                 if (result.removeTool && combo.selectedTool.id != target.id) {
-                    self._game.currentLocation.features.remove(combo.selectedTool.id);
+                    self.removeFeature(combo.selectedTool);
                 }
 
                 SaveWorldState(self._dataService, self._locationService, self._game);
@@ -69,9 +85,8 @@ namespace StoryScript {
             return result;
         }
 
-        private performCombination(target: ICombinable): ICombineResult {
+        private performCombination(target: ICombinable, combo: IActiveCombination): ICombineResult {
             var self = this;
-            var combo = self._game.combinations.activeCombination;
             var tool = combo.selectedTool;
             var type = combo.selectedCombinationAction;
             var prepositionText = combo.selectedCombinationAction.preposition ? ' ' + combo.selectedCombinationAction.preposition + ' ' : ' '
@@ -99,7 +114,15 @@ namespace StoryScript {
             };
 
             if (combination) {
-                var matchResult = combination.match(self._game, target, tool);
+                var matchResult = combination.match ? combination.match(self._game, target, tool) 
+                                    : combo.selectedCombinationAction.defaultMatch ? combo.selectedCombinationAction.defaultMatch(self._game, target, tool)
+                                        : undefined;
+
+                if (matchResult === undefined) {
+                    var entity = <any>target;
+                    throw new Error(`No match function specified for ${entity.type} ${entity.id} for action ${combination.combinationType}. Neither was a default action specified. Add one or both.`)
+                }
+                
                 result.success = true;
                 result.text = typeof matchResult === 'string' ? matchResult : matchResult.text;
                 result.removeTarget = typeof matchResult !== 'string' && matchResult.removeTarget;
@@ -122,6 +145,27 @@ namespace StoryScript {
         private isMatch(combineTool: any, tool: ICombinable) {
             var combineId = typeof combineTool === 'function' ? combineTool.name || combineTool.originalFunctionName : combineTool;
             return tool.id.toLowerCase() === combineId.toLowerCase();
+        }
+
+        private removeFeature(feature: IFeature) {
+            var self = this;
+
+            // Remove the feature from all possible locations. As we use the object
+            // reference, objects of the same type should be left alone.
+            self._game.currentLocation.features.remove(feature);
+            self._game.currentLocation.destinations.forEach(d => {
+                if (d.barrier === feature) {
+                    d.barrier = null;
+                }
+            });
+
+            self._game.currentLocation.items.remove(<IItem>feature);
+            self._game.character.items.remove(<IItem>feature);
+            // When equipment can be used in combinations, remove items from the
+            // character's equipment as well.
+
+            self._game.currentLocation.enemies.remove(<IEnemy>feature);
+            self._game.currentLocation.persons.remove(<IPerson>feature);
         }
     }
 
