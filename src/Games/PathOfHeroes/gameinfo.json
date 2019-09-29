@@ -2,6 +2,7 @@
     "name": "Path of Heroes Demonstration",
     "description": "Showcase of StoryScript possibilities for Path of Heroes",
     "picture": "",
+    "sourcesIncluded": false,
     "author": {
         "name": "Rutger Schurgers",
         "email": "rutger@strixit.com"
