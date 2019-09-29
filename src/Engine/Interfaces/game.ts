@@ -69,6 +69,11 @@
         state: StoryScript.GameState;
 
         /**
+         * The current state of play of the game.
+         */
+        playState: StoryScript.PlayState;
+
+        /**
          * True if a game is being loaded, false otherwise.
          */
         loading: boolean;
@@ -113,6 +118,11 @@
          * Helper functions to make programming the game easier.
          */
         helpers: IHelperService;
+
+        sounds: {
+            startMusic() : void;
+            stopMusic() : void;
+        }
 
         /**
          * The function executed to change from one location to the next.

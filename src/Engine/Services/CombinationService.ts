@@ -20,7 +20,6 @@ namespace StoryScript {
             var self = this;
             let className = '';
 
-            // TODO: actually use the 'combine-active-selected' class!
             if (tool) {
                 className = self._game.combinations.activeCombination ? self._game.combinations.activeCombination.selectedTool && self._game.combinations.activeCombination.selectedTool.id === tool.id ? 'combine-active-selected' : 'combine-selectable' : '';
             }
@@ -102,8 +101,9 @@ namespace StoryScript {
             
             if (!combination) {
                 // For items, the order in which the combination is tried shouldn't matter.
-                // Todo: better type the type property.
-                if (tool && (<any>tool).type === 'item' && target && (<any>target).type === 'item') {
+                var anyTool = <any>tool;
+
+                if (anyTool && anyTool.type === 'item' && target && anyTool.type === 'item') {
                     combination = tool.combinations && tool.combinations.combine ? tool.combinations.combine.filter(c => c.combinationType === type.text && self.isMatch(c.tool, target))[0] : null;
                 }
             }
@@ -144,7 +144,7 @@ namespace StoryScript {
 
         private isMatch(combineTool: any, tool: ICombinable) {
             var combineId = typeof combineTool === 'function' ? combineTool.name || combineTool.originalFunctionName : combineTool;
-            return tool.id.toLowerCase() === combineId.toLowerCase();
+            return compareString(tool.id, combineId);
         }
 
         private removeFeature(feature: IFeature) {

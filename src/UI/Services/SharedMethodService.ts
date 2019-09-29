@@ -77,22 +77,18 @@ namespace StoryScript
             if (action && action.execute) {
                 // Modify the arguments collection to add the game to the collection before calling the function specified.
                 var args = <any[]>[self._game, action];
-                var actionData = self.getActionIndex(self._game, action);
-                args.splice(1, 0, actionData.index)
-
-                if (action.arguments && action.arguments.length) {
-                    args = args.concat(action.arguments);
-                }
 
                 // Execute the action and when nothing or false is returned, remove it from the current location.
                 var executeFunc = typeof action.execute !== 'function' ? controller[<string>action.execute] : action.execute;
                 var result = executeFunc.apply(controller, args);
+                var typeAndIndex = this.getActionIndex(self._game, action);
 
-                if (!result && actionData.index !== -1) {
-                    if (actionData.type === 'regular' && self._game.currentLocation.actions) {
-                        self._game.currentLocation.actions.splice(actionData.index, 1);
-                    } else if (actionData.type === 'combat' && self._game.currentLocation.combatActions) {
-                        self._game.currentLocation.combatActions.splice(actionData.index, 1);
+                if (!result && typeAndIndex.index !== -1) {
+
+                    if (typeAndIndex.type === ActionType.Regular && self._game.currentLocation.actions) {
+                        self._game.currentLocation.actions.splice(typeAndIndex.index, 1);
+                    } else if (typeAndIndex.type === ActionType.Combat && self._game.currentLocation.combatActions) {
+                        self._game.currentLocation.combatActions.splice(typeAndIndex.index, 1);
                     }
                 }
 
@@ -104,7 +100,7 @@ namespace StoryScript
         startCombat = (): void => {
             var self = this;
             self._game.combatLog = [];
-            self._game.state = GameState.Combat;
+            self._game.playState = PlayState.Combat;
         }
 
         trade = (game: IGame, actionIndex: number, trade: IPerson | ITrade): boolean => {
@@ -123,43 +119,43 @@ namespace StoryScript
             }
 
             if (item.description) {
-                self._game.state = GameState.Description;
                 scope.$emit('showDescription', { title: title, type: type, item: item });
             }
         }
 
         showEquipment = (): boolean => {
             var self = this;
-            return self.useEquipment && Object.keys(self._game.character.equipment).some(k => self._game.character.equipment[k] !== undefined);
+            return self.useEquipment && self._game.character && Object.keys(self._game.character.equipment).some(k => self._game.character.equipment[k] !== undefined);
         }
 
-        private getActionIndex(game: IGame, action: IAction): { type: string, index: number} {
+        private getActionIndex(game: IGame, action: IAction): { type: number, index: number} {
             var index = -1;
-            var type: string = null;
-            var compare = (a: IAction) => a.actionType === action.actionType && a.text === action.text && a.status === action.status;
+            var result = {
+                index: index,
+                type: 0
+            };
 
             game.currentLocation.actions.forEach((a, i) => {
-                if (compare(a)) {
-                    index = i;
-                    type = 'regular';
-                    return;
+                if (a === action) {
+                    result = {
+                        index: i,
+                        type: 0
+                    }
                 }
             });
 
             if (index == -1) {
                 game.currentLocation.combatActions.forEach((a, i) => {
-                    if (compare(a)) {
-                        index = i;
-                        type = 'combat';
-                        return;
+                    if (a === action) {
+                        result = {
+                            index: i,
+                            type: 2
+                        }
                     }
                 });
             }
 
-            return {
-                type: type,
-                index: index
-            };
+            return result;
         }
     }
 

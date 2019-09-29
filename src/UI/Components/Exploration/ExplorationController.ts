@@ -11,7 +11,7 @@ namespace StoryScript {
 
         actionsPresent = () => {
             var self = this;
-            return !self.enemiesPresent() && !isEmpty(self.game.currentLocation.actions);
+            return self.game.currentLocation && !self.enemiesPresent() && !isEmpty(self.game.currentLocation.actions);
         }
 
         enemiesPresent = () => {
@@ -31,12 +31,12 @@ namespace StoryScript {
 
         disableActionButton = (action: IAction) => {
             var self = this;
-            return typeof action.status === "function" ? (<any>action).status(self.game) == ActionStatus.Disabled : action.status == undefined ? false : (<any>action).status == ActionStatus.Disabled;
+            return typeof action.status === 'function' ? (<any>action).status(self.game) == ActionStatus.Disabled : action.status == undefined ? false : (<any>action).status == ActionStatus.Disabled;
         }
 
         hideActionButton = (action: IAction) => {
             var self = this;
-            return typeof action.status === "function" ? (<any>action).status(self.game) == ActionStatus.Unavailable : action.status == undefined ? false : (<any>action).status == ActionStatus.Unavailable;
+            return typeof action.status === 'function' ? (<any>action).status(self.game) == ActionStatus.Unavailable : action.status == undefined ? false : (<any>action).status == ActionStatus.Unavailable;
         }
 
         executeAction = (action: IAction): void => {
@@ -44,7 +44,7 @@ namespace StoryScript {
             self._sharedMethodService.executeAction(action, self);
         }
 
-        executeBarrierAction = (destination: IDestination, barrier: IBarrier) => {
+        executeBarrierAction = (barrier: IBarrier, destination: IDestination) => {
             var self = this;
 
             if (self._game.combinations.tryCombine(barrier))
@@ -55,7 +55,7 @@ namespace StoryScript {
                 return;
             }
 
-            self._gameService.executeBarrierAction(destination, barrier);
+            self._gameService.executeBarrierAction(barrier, destination);
         }
 
         trade = (game: IGame, actionIndex: number, trade: IPerson | ITrade) => {
