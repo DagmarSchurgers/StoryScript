@@ -2,6 +2,7 @@ namespace StoryScript {
     export interface ICombinationService {
         getCombinationActions(): ICombinationAction[];
         getCombineClass(tool: ICombinable): string;
+        setActiveCombination(combination: ICombinationAction): void;
         tryCombination(target: ICombinable): ICombineResult;
     }
 }
@@ -20,7 +21,6 @@ namespace StoryScript {
             var self = this;
             let className = '';
 
-            // TODO: actually use the 'combine-active-selected' class!
             if (tool) {
                 className = self._game.combinations.activeCombination ? self._game.combinations.activeCombination.selectedTool && self._game.combinations.activeCombination.selectedTool.id === tool.id ? 'combine-active-selected' : 'combine-selectable' : '';
             }
@@ -29,6 +29,27 @@ namespace StoryScript {
             }
 
             return className;
+        }
+
+        setActiveCombination = (combination: ICombinationAction): void => {
+            var self = this;
+
+            if (!combination) {
+                return;
+            }
+
+            if (self._game.combinations.activeCombination && self._game.combinations.activeCombination.selectedCombinationAction === combination) {
+                self._game.combinations.activeCombination = null;
+                return;
+            }
+
+            combination.requiresTool = combination.requiresTool === undefined || combination.requiresTool === true ? true : false;
+
+            self._game.combinations.activeCombination = {
+                selectedCombinationAction: combination,
+                selectedTool: null,
+                combineText: combination.requiresTool ? combination.text : combination.text + ' ' + (combination.preposition || '')
+            };
         }
 
         tryCombination = (target: ICombinable): ICombineResult => {
@@ -145,7 +166,7 @@ namespace StoryScript {
 
         private isMatch(combineTool: any, tool: ICombinable) {
             var combineId = typeof combineTool === 'function' ? combineTool.name || combineTool.originalFunctionName : combineTool;
-            return tool.id.toLowerCase() === combineId.toLowerCase();
+            return compareString(tool.id, combineId);
         }
 
         private removeFeature(feature: IFeature) {

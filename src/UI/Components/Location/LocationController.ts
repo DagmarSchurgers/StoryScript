@@ -15,23 +15,7 @@ namespace StoryScript {
 
         getDescription = (entity: any, key: string): string => {
             var self = this;
-            return self._sce.trustAsHtml(self._gameService.getDescription('locations', entity, key));
-        }
-
-        getWorldProperties = (): any[] => {
-            var self = this;
-            
-            for (var i = 0; i < self.worldProperties.length; i++) {
-                var property = self.worldProperties[i];
-                var value = self._game.worldProperties[property.name];
-
-                if (self._texts.worldProperties) {
-                    var text = self._texts.format(self._texts.worldProperties[property.name], [value]);
-                    property.value = text;
-                }
-            }
-
-            return self.worldProperties;
+            return !entity ? '' : self._sce.trustAsHtml(self._gameService.getDescription('locations', entity, key));
         }
 
         getCombineClass = (feature: IFeature) => {

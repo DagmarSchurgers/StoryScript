@@ -13,16 +13,20 @@ namespace StoryScript {
             var self = this;
             self.game = self._game;
             self.texts = self._texts;
-            self._scope.$on('restart', () => self.init(true));
-            self._scope.$on('showDescription', (event, args) => self._scope.$broadcast('initDescription', args));
-            self._scope.$on('levelUp', () => self._scope.$broadcast('initLevelUp'));
-            self._scope.$on('saveGame', () => self._scope.$broadcast('initSaveGame'));
-            self._scope.$on('loadGame', () => self._scope.$broadcast('initLoadGame'));
             (<any>self._scope).game = self._game;
+
+            self._scope.$on('restart', (ev) => { 
+                self.broadcast(ev, null, () => self.init(true));
+            });
+
+            self._scope.$on('gameLoaded', self.broadcast);
+            self._scope.$on('showDescription', self.broadcast);
+            self._scope.$on('showMenu', self.broadcast);
 
             self._scope.$watch('game.currentLocation', self.watchLocation);
             self._scope.$watch('game.character.currentHitpoints', self.watchCharacterHitpoints);
             self._scope.$watch('game.character.score', self.watchCharacterScore);
+            self._scope.$watch('game.state', self.watchGameState);
 
             self._game.dynamicStyles = self._game.dynamicStyles || [];
 
@@ -59,6 +63,17 @@ namespace StoryScript {
             self._scope.$broadcast('createCharacter');
         }
 
+        private broadcast(event: ng.IAngularEvent, args?: any[], callback?: Function)
+        {
+            if (event.currentScope !== event.targetScope) {
+                if (callback) {
+                    callback();
+                }
+
+                event.currentScope.$broadcast(event.name, args);
+            }
+        }
+
         private watchCharacterHitpoints(newValue, oldValue, scope) {
             if (!scope.$ctrl._game.loading) {
                 if (parseInt(newValue) && parseInt(oldValue) && newValue != oldValue) {
@@ -75,6 +90,19 @@ namespace StoryScript {
                     scope.$ctrl._gameService.scoreChange(increase);
                 }
             }
+        }
+
+        private watchGameState(newValue: GameState, oldValue: GameState, scope) {
+            if (newValue == GameState.LevelUp) {
+                scope.$broadcast('initLevelUp');
+            }
+            
+            if (oldValue == GameState.LevelUp && newValue == GameState.Play) {
+                // Level-up was just completed. Save the game from here, because the character service cannot depend on the game service.
+                scope.$ctrl._gameService.saveGame();
+            }
+
+            scope.$ctrl._gameService.changeGameState(newValue);
         }
 
         private watchLocation(newValue: ICompiledLocation, oldValue: ICompiledLocation, scope) {
