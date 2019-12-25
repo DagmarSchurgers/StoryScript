@@ -1,10 +1,10 @@
 {
-    "name": "",
-    "description": "",
+    "name": "Interactive Story demo",
+    "description": "A demo to showcase the StoryScript building blocks for Interactive Stories",
     "picture": "",
-    "sourcesIncluded": false,
+    "sourcesIncluded": true,
     "author": {
-        "name": "",
-        "email": ""
+        "name": "Rutger Schurgers",
+        "email": "rutger@strixit.com"
     }
 }
