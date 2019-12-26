@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ITrade, IAction, PlayState, ActionType, IPerson, IEnemy, ICombinable } from 'storyScript/Interfaces/storyScript';
+import { ITrade, IAction, PlayState, ActionType, IPerson, IEnemy, ICombinable, GameState } from 'storyScript/Interfaces/storyScript';
 import { GameService } from 'storyScript/Services/gameService';
 import { TradeService } from 'storyScript/Services/TradeService';
 import { ConversationService } from 'storyScript/Services/ConversationService';
@@ -65,13 +65,15 @@ export class SharedMethodService {
         }
 
         game.combatLog = [];
-        game.playState = PlayState.Combat;
         this.setPlayState(game, PlayState.Combat);
     }
 
     fight = (game: IGame, enemy: IEnemy): void => {
          this._gameService.fight(enemy);
-         this.enemiesPresent(game);
+
+         if (game.playState !== PlayState.Combat) {
+            this.setPlayState(game, game.playState);
+         }
     }
 
     getButtonClass = (action: IAction): string => {
