@@ -12,6 +12,5 @@
 /src/types/*
 /src/Games/**/resources/*
 /src/Games/QuestForTheKing/**/*.html
-/src/Games/LanternofWorlds/**/*.html
 
 debug.log
