@@ -13,7 +13,8 @@
         "start": "webpack-dev-server --config webpack/webpack.development.js",
         "publish": "webpack --config webpack/webpack.production.js",
         "engine-tests": "cd src/Tests/Engine && karma start",
-        "myroleplayinggame-tests": "cd src/Tests/Games/MyRolePlayingGame && karma start"
+        "myroleplayinggame-tests": "cd src/Tests/Games/MyRolePlayingGame && karma start",
+        "dangerouscave-tests": "cd src/Tests/Games/DangerousCave && karma start"
     },
     "devDependencies": {
         "@types/node": "^12.12.14",
