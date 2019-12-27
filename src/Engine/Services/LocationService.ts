@@ -13,12 +13,12 @@ import { addHtmlSpaces, isEmpty } from '../utilities';
 import { ILocationService } from '../Interfaces/services/locationService';
 import { IDataService } from '../Interfaces/services//dataService';
 import { ActionType } from '../Interfaces/enumerations/actionType';
-import { ITradeService } from 'storyScript/Interfaces/services/tradeService';
+import { getParsedDocument } from './sharedFunctions';
 
 export class LocationService implements ILocationService {
     private pristineLocations: ICollection<ICompiledLocation>;
 
-    constructor(private _dataService: IDataService, private _tradeService: ITradeService, private _rules: IRules, private _game: IGame, private _definitions: IDefinitions) {
+    constructor(private _dataService: IDataService, private _rules: IRules, private _game: IGame, private _definitions: IDefinitions) {
     }
 
     init = (game: IGame, buildWorld?: boolean): void => {
@@ -192,14 +192,12 @@ export class LocationService implements ILocationService {
     private initTrade = (game: IGame): void => {
         if (game.currentLocation.trade?.length > 0) {
             game.currentLocation.trade.forEach(t => {
-                if (!game.currentLocation.actions.find(a => a.actionType === ActionType.Trade && a.text === t.title)) {
+                if (!game.currentLocation.actions.find(a => a.actionType === ActionType.Trade && a.id === t.id)) {
                     game.currentLocation.actions.push({
-                        text: t.title,
+                        id: t.id,
+                        text: t.name,
                         actionType: ActionType.Trade,
-                        execute: (game: IGame) => {
-                            this._tradeService.trade(t);
-                            return true;
-                        },
+                        execute: 'trade'
                     });
                 }
             });
@@ -245,11 +243,8 @@ export class LocationService implements ILocationService {
     private loadLocationDescriptions = (game: IGame): void => {
         if (!game.currentLocation.descriptions) {
             if (game.currentLocation.description) {
-                var parser = new DOMParser();
-                var htmlDoc = parser.parseFromString(game.currentLocation.description, 'text/html');
-
-                this.processVisualFeatures(htmlDoc, game);
-                this.processDescriptions(htmlDoc, game);
+                this.processVisualFeatures(getParsedDocument('visual-features', game.currentLocation.description)[0], game);
+                this.processDescriptions(getParsedDocument('description', game.currentLocation.description), game);
             }
         }
 
@@ -258,9 +253,7 @@ export class LocationService implements ILocationService {
         }
     }
 
-    private processDescriptions = (htmlDoc: Document, game: IGame): void => {
-        var descriptionNodes = htmlDoc.getElementsByTagName('description');
-
+    private processDescriptions = (descriptionNodes: HTMLCollectionOf<Element>, game: IGame): void => {
         if (!descriptionNodes || !descriptionNodes.length) {
             return;
         }
@@ -308,9 +301,7 @@ export class LocationService implements ILocationService {
         game.currentLocation.description = htmlDoc.body.innerHTML;
     }
 
-    private processVisualFeatures = (htmlDoc: Document, game: IGame): void => {
-        var visualFeatureNode = htmlDoc.getElementsByTagName('visual-features')[0];
-
+    private processVisualFeatures = (visualFeatureNode: Element, game: IGame): void => {
         if (visualFeatureNode) {
             game.currentLocation.features.collectionPicture = visualFeatureNode.attributes['img'] && visualFeatureNode.attributes['img'].nodeValue;
 

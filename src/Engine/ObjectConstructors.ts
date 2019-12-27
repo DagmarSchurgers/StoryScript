@@ -39,6 +39,7 @@ const _definitions: IDefinitions = {
 const _functions = {};
 
 export function buildEntities(): void {
+    // Build all entities once to register them with their id.
     Object.getOwnPropertyNames(_definitions).forEach(p => {
         _definitions[p].forEach((f: Function) => {
             buildEntity(f, f.name);
@@ -46,6 +47,13 @@ export function buildEntities(): void {
     });
 
     _registration = false;
+
+    // Build all entities again to register their functions.
+    Object.getOwnPropertyNames(_definitions).forEach(p => {
+        _definitions[p].forEach((f: Function) => {
+            f();
+        });
+    });
 }
 
 export function GetDefinitions(): IDefinitions { 
@@ -120,6 +128,7 @@ export function initCollection<T>(entity: any, property: string) {
     ];
 
     const _gameCollections: string[] = _entityCollections.concat([
+        'trade',
         'actions',
         'combatActions',
         'destinations',
@@ -134,7 +143,7 @@ export function initCollection<T>(entity: any, property: string) {
     
     var collection = entity[property] || [];
 
-    if (property === 'features' && entity[property]) {
+    if ((property === 'features' || property === 'trade') && entity[property]) {
         // Initialize features that have been declared inline. Check for the existence of a type property to determine whether the object is already initialized.
         // Store the current entity key, as it will be overridden when inline features are build.
         const locationEntityKey = _currentEntityKey;
@@ -196,10 +205,14 @@ export function DynamicEntity<T>(entityFunction: () => T, name: string): T {
 }
 
 function buildEntity(entityFunction: Function, functionName: string) {
+    _currentEntityKey = null;
+
     entityFunction();
 
-    // Add the key/id registration record.
-    _registeredIds.set(_currentEntityKey, functionName.toLowerCase());
+    if (_currentEntityKey) {
+        // Add the key/id registration record.
+        _registeredIds.set(_currentEntityKey, functionName.toLowerCase());
+    }
 }
 
 function Create(type: string, entity: any, id?: string) {
@@ -225,6 +238,9 @@ function Create(type: string, entity: any, id?: string) {
         case 'action': {
             return CreateObject(entity, 'action', id);
         }
+        case 'trade': {
+            return CreateObject(entity, 'trade', id);
+        }
     }
 }
 
@@ -247,6 +263,7 @@ function createLocation(entity: ILocation) {
     initCollection(location, 'combatActions');
     initCollection(location, 'destinations');
     initCollection(location, 'features');
+    initCollection(location, 'trade');
     initCollection(location, 'items');
     initCollection(location, 'enemies');
     initCollection(location, 'persons');
