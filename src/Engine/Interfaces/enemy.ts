@@ -1,57 +1,48 @@
-﻿namespace StoryScript {
+﻿import { IFeature } from './feature';
+import { ICollection } from './collection';
+import { IItem } from './item';
+import { IGame } from './game';
+
+/**
+ * Defines the base properties for an enemy in the game.
+ */
+export interface IEnemy extends IFeature {
     /**
-     * Defines an enemy for the game.
+     * The details about this enemy as displayed to the player. If you use an HTML-page to describe the enemy, the contents of that HTML-page
+     * will be used to set this property at run-time.
      */
-    export interface IEnemy extends ICombinable {
-        /**
-         * The file name of the image to display for the enemy. The file name should be relative to the index.html file. Note that if you
-         * use an HTML-page to describe the enemy, you can add an image-tag to it with the class 'picture'. The source of the image-tag
-         * will then be used to set this property at run-time.
-         */
-        pictureFileName?: string;
+    description?: string;
 
-        /**
-         * The name of the enemy as displayed to the player.
-         */
-        name: string;
+    /**
+     * The health of the enemy.
+     */
+    hitpoints: number;
 
-        /**
-         * The details about this enemy as displayed to the player. If you use an HTML-page to describe the enemy, the contents of that HTM-page
-         * will be used to set this property at run-time.
-         */
-        description?: string;
+    /**
+     * The amount of credits the enemy has, in whatever form.
+     */
+    currency?: number;
 
-        /**
-         * The health of the enemy.
-         */
-        hitpoints: number;
+    /**
+     * The items the enemy is carrying.
+     */
+    items?: ICollection<IItem>;
 
-        /**
-         * The amount of credits the enemy has, in whatever form.
-         */
-        currency?: number;
+    /**
+     * When this flag is set to true, the enemy is not shown to the player, cannot be attacked and will not block the player from travelling.
+     * Useful to only conditionally make enemies present on a location.
+     */
+    inactive?: boolean;
 
-        /**
-         * When this flag is set to true, the enemy is not shown to the player, cannot be attacked and will not block the player from travelling.
-         * Useful to only conditionally make enemies present on a location.
-         */
-        inactive?: boolean;
+    /**
+     * When specified, this function will be called when the enemy is attacked by the player.
+     * @param game The game object
+     */
+    onAttack?(game: IGame): void;
 
-        /**
-         * The items the enemy is carrying.
-         */
-        items?: ICollection<() => IItem>;
-
-        /**
-         * When specified, this function will be called when the enemy is attacked by the player.
-         * @param game The game object
-         */
-        onAttack?(game: IGame): void;
-
-        /**
-         * When specified, this function will be called when the enemy's health is reduced to 0 or less.
-         * @param game The game object
-         */
-        onDefeat?(game: IGame): void;
-    }
+    /**
+     * When specified, this function will be called when the enemy's health is reduced to 0 or less.
+     * @param game The game object
+     */
+    onDefeat?(game: IGame): void;
 }

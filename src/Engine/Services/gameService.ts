@@ -1,546 +1,520 @@
-﻿namespace StoryScript {
-    export interface IGameService {
-        init(): void;
-        initTexts(customTexts: IInterfaceTexts): IInterfaceTexts;
-        startNewGame(characterData: any): void;
-        reset(): void;
-        restart(): void;
-        saveGame(name?: string): void;
-        getSaveGames(): string[];
-        loadGame(name: string): void;
-        hasDescription(type: string, item: { id?: string, description?: string }): boolean;
-        getDescription(type: string, entity: any, key: string): string;
-        initCombat(): void;
-        fight(enemy: ICompiledEnemy, retaliate?: boolean): void;
-        useItem(item: IItem): void;
-        executeBarrierAction(destination: IDestination, barrier: IBarrier): void;
-        scoreChange(change: number): void;
-        hitpointsChange(change: number): void;
-        changeGameState(state: StoryScript.GameState): void;
-        dynamicLocations(): boolean;
+﻿import { IRules } from '../Interfaces/rules/rules';
+import { IGame } from '../Interfaces/game';
+import { IInterfaceTexts } from '../Interfaces/interfaceTexts';
+import { ICharacter } from '../Interfaces/character';
+import { ISaveGame } from '../Interfaces/saveGame';
+import { IEnemy } from '../Interfaces/enemy';
+import { IItem } from '../Interfaces/item';
+import { IBarrier } from '../Interfaces/barrier';
+import { IDestination } from '../Interfaces/destination';
+import { ScoreEntry } from '../Interfaces/scoreEntry';
+import { IStatistics } from '../Interfaces/statistics';
+import { DataKeys } from '../DataKeys';
+import { SaveWorldState, getParsedDocument, checkAutoplay } from './sharedFunctions';
+import { DefaultTexts } from '../defaultTexts';
+import { IGameService } from '../Interfaces/services//gameService';
+import { IDataService } from '../Interfaces/services//dataService';
+import { ILocationService } from '../Interfaces/services/locationService';
+import { ICharacterService } from '../Interfaces/services/characterService';
+import { ICombinationService } from '../Interfaces/services/combinationService';
+import { IHelperService } from '../Interfaces/services//helperService';
+import { IBarrierAction } from '../Interfaces/barrierAction';
+import { GameState } from '../Interfaces/enumerations/gameState';
+import { PlayState } from '../Interfaces/enumerations/playState';
+import { ICombinable } from '../Interfaces/combinations/combinable';
+
+export class GameService implements IGameService {
+    private _parsedDescriptions = new Map<string, boolean>();
+    private mediaTags = ['autoplay="autoplay"', 'autoplay=""', 'autoplay'];
+    private _musicStopped: boolean = false;
+
+    constructor(private _dataService: IDataService, private _locationService: ILocationService, private _characterService: ICharacterService, private _combinationService: ICombinationService, private _rules: IRules, private _helperService: IHelperService, private _game: IGame, private _texts: IInterfaceTexts) {
     }
-}
 
-namespace StoryScript {
-    export class GameService implements IGameService {
-        private mediaTags = ['autoplay="autoplay"', 'autoplay=""', 'autoplay'];
+    init = (restart?: boolean, skipIntro?: boolean): void => {
+        this._game.helpers = this._helperService;
 
-        constructor(private _dataService: IDataService, private _locationService: ILocationService, private _characterService: ICharacterService, private _combinationService: ICombinationService, private _events: EventTarget, private _rules: IRules, private _helperService: IHelperService, private _game: IGame) {
+        if (restart) {
+            this._game.statistics = {};
+            this._game.worldProperties = {};
         }
 
-        init = (): void => {
-            var self = this;
-            self._game.helpers = self._helperService;
-
-            if (self._rules.setupGame) {
-                self._rules.setupGame(self._game);
-            }
-
-            self.setupGame();
-            self._game.highScores = self._dataService.load<ScoreEntry[]>(StoryScript.DataKeys.HIGHSCORES);
-            self._game.character = self._dataService.load<ICharacter>(StoryScript.DataKeys.CHARACTER);
-            self._game.statistics = self._dataService.load<IStatistics>(StoryScript.DataKeys.STATISTICS) || self._game.statistics || {};
-            self._game.worldProperties = self._dataService.load(StoryScript.DataKeys.WORLDPROPERTIES) || self._game.worldProperties || {};
-            var locationName = self._dataService.load<string>(StoryScript.DataKeys.LOCATION);
-
-            if (self._game.character && locationName) {
-                self.resume(locationName);
-            }
-            else {
-                self._game.state = StoryScript.GameState.CreateCharacter;
-            }
+        if (this._rules.setup && this._rules.setup.setupGame) {
+            this._rules.setup.setupGame(this._game);
         }
 
-        initTexts = (customTexts: IInterfaceTexts): IInterfaceTexts => {
-            var self = this;
-            var defaultTexts = new DefaultTexts();
+        this.setupGame();
+        this.initTexts();
+        this._game.highScores = this._dataService.load<ScoreEntry[]>(DataKeys.HIGHSCORES);
+        this._game.character = this._dataService.load<ICharacter>(DataKeys.CHARACTER);
 
-            for (var n in defaultTexts.texts) {
-                customTexts[n] = customTexts[n] ? customTexts[n] : defaultTexts.texts[n];
-            }
+        if (!restart) {
+            this._game.statistics = this._dataService.load<IStatistics>(DataKeys.STATISTICS) || this._game.statistics || {};
+            this._game.worldProperties = this._dataService.load(DataKeys.WORLDPROPERTIES) || this._game.worldProperties || {};
+        }
+        
+        if (!this._game.character && this._rules.setup.intro && !skipIntro) {
+            this._game.state = GameState.Intro;
+            return;
+        }
+        
+        var locationName = this._dataService.load<string>(DataKeys.LOCATION);
+        var characterSheet = this._rules.character.getCreateCharacterSheet && this._rules.character.getCreateCharacterSheet();
+        var hasCreateCharacterSteps = characterSheet && characterSheet.steps && characterSheet.steps.length > 0;
 
-            customTexts.format = defaultTexts.format;
-            customTexts.titleCase = defaultTexts.titleCase;
-            return customTexts;
+        if (!hasCreateCharacterSteps && !this._game.character) {
+            this.createCharacter(<ICharacter>{});
+            locationName = 'Start';
         }
 
-        reset = () => {
-            var self = this;
-            self._dataService.save(StoryScript.DataKeys.WORLD, {});
-            self._locationService.init(self._game);
-            self._game.worldProperties = self._dataService.load(StoryScript.DataKeys.WORLDPROPERTIES);
-            var location = self._dataService.load<string>(StoryScript.DataKeys.LOCATION);
+        if (this._game.character && locationName) {
+            this.initSetInterceptors();
+            this.resume(locationName);
 
-            if (location) {
-                self._locationService.changeLocation(location, false, self._game);
+            if (this._rules.setup.continueGame) {
+                this._rules.setup.continueGame(this._game);
             }
         }
+        else {
+            this._characterService.setupCharacter();
+            this._game.state = GameState.CreateCharacter;
+        }
+    }
 
-        startNewGame = (characterData: any): void => {
-            var self = this;
-            self._game.character = self._characterService.createCharacter(self._game, characterData);
-            self._dataService.save(StoryScript.DataKeys.CHARACTER, self._game.character);
-            self.setupCharacter();
-            self._game.changeLocation('Start');
-            self._game.state = StoryScript.GameState.Play;
+    reset = (): void => {
+        this._dataService.save(DataKeys.WORLD, {});
+        this._dataService.save(DataKeys.PLAYEDMEDIA, []);
+        this._locationService.init(this._game);
+        this._game.worldProperties = this._dataService.load(DataKeys.WORLDPROPERTIES);
+        var location = this._dataService.load<string>(DataKeys.LOCATION);
+
+        if (location) {
+            this._locationService.changeLocation(location, false, this._game);
+        }
+    }
+
+    startNewGame = (characterData: any): void => {
+        this.createCharacter(characterData);
+
+        if (this._rules.setup.gameStart) {
+            this._rules.setup.gameStart(this._game);
         }
 
-        restart = (): void => {
-            var self = this;
-            self._dataService.save(StoryScript.DataKeys.CHARACTER, {});
-            self._dataService.save(StoryScript.DataKeys.STATISTICS, {});
-            self._dataService.save(StoryScript.DataKeys.LOCATION, '');
-            self._dataService.save(StoryScript.DataKeys.PREVIOUSLOCATION, '');
-            self._dataService.save(StoryScript.DataKeys.WORLDPROPERTIES, {});
-            self._dataService.save(StoryScript.DataKeys.WORLD, {});
-            self.init();
+        if (!this._game.currentLocation) {
+            this._game.changeLocation('Start');
         }
 
-        saveGame = (name?: string): void => {
-            var self = this;
+        this.initSetInterceptors();
 
-            if (name) {
-                var saveGame = <ISaveGame>{
-                    name: name,
-                    character: self._game.character,
-                    world: self._locationService.copyWorld(),
-                    worldProperties: self._game.worldProperties,
-                    statistics: self._game.statistics,
-                    location: self._game.currentLocation.id,
-                    previousLocation: self._game.previousLocation ? self._game.previousLocation.id : null,
-                    state: self._game.state
-                };
+        this._game.state = GameState.Play;
+        this.saveGame();
+    }
 
-                self._dataService.save(StoryScript.DataKeys.GAME + '_' + name, saveGame);
-            }
-            else {
-                self.SaveWorldState();
-            }
-        }
+    levelUp = (): ICharacter => {
+        var levelUpResult = this._characterService.levelUp();
+        this.saveGame();
+        return levelUpResult;
+    }
 
-        loadGame = (name: string): void => {
-            var self = this;
-            var saveGame = self._dataService.load<ISaveGame>(StoryScript.DataKeys.GAME + '_' + name);
+    restart = (skipIntro?: boolean): void => {
+        this._dataService.save(DataKeys.CHARACTER, {});
+        this._dataService.save(DataKeys.STATISTICS, {});
+        this._dataService.save(DataKeys.LOCATION, '');
+        this._dataService.save(DataKeys.PREVIOUSLOCATION, '');
+        this._dataService.save(DataKeys.WORLDPROPERTIES, {});
+        this._dataService.save(DataKeys.WORLD, {});
+        this._dataService.save(DataKeys.PLAYEDMEDIA, []);
+        this.init(true, skipIntro);
+    }
 
-            if (saveGame) {
-                self._game.loading = true;
-                self._game.character = saveGame.character;
-                self._game.locations = saveGame.world;
-                self._game.worldProperties = saveGame.worldProperties;
-            
-                self._locationService.init(self._game, false);
-                self._game.currentLocation = self._game.locations.get(saveGame.location);
-
-                if (saveGame.previousLocation) {
-                    self._game.previousLocation = self._game.locations.get(saveGame.previousLocation);
-                }
-
-                self.SaveWorldState();
-                self._dataService.save(StoryScript.DataKeys.LOCATION, self._game.currentLocation.id);
-                self._game.actionLog = [];
-                self._game.state = saveGame.state;
-            }
-        }
-
-        getSaveGames = (): string[] => {
-            var self = this;
-            return self._dataService.getSaveKeys();
-        }
-
-        hasDescription = (type: string, item: { id?: string, description?: string }): boolean => {
-            var self = this;
-            return self._dataService.hasDescription(type, item);
-        }
-
-        getDescription = (type: string, entity: any, key: string): string => {
-            var self = this;
-            var description = entity && entity[key] ? entity[key] : null;
-
-            if (!description) {
-                self._dataService.loadDescription(type, entity);
-                description = entity[key];
-            }
-
-            if (description) {
-                self.processMediaTags(entity, key);
-            }
-
-            return description;
-        }
-
-        initCombat = (): void => {
-            var self = this;
-
-            if (self._rules.initCombat) {
-                self._rules.initCombat(self._game, self._game.currentLocation);
-            }
-
-            self._game.currentLocation.activeEnemies.forEach(enemy => {
-                if (enemy.onAttack) {
-                    enemy.onAttack(self._game);
-                }
-            });
-        }
-
-        fight = (enemy: ICompiledEnemy, retaliate?: boolean) => {
-            var self = this;
-
-            if (!self._rules || !self._rules.fight)
-            {
-                return;
-            }
-
-            self._rules.fight(self._game, enemy, retaliate);
-
-            if (enemy.hitpoints <= 0) {
-                self.enemyDefeated(enemy);
-            }
-
-            if (self._game.character.currentHitpoints <= 0) {
-                self._game.state = StoryScript.GameState.GameOver;
-            }
-
-            self.saveGame();
-        }
-
-        useItem = (item: IItem): void => {
-            var self = this;
-            item.use(self._game, item);
-        }
-
-        executeBarrierAction = (destination: IDestination, barrier: IBarrier): void => {
-            var self = this;
-
-            // Todo: improve, use selected action as object.
-            if (!barrier.actions || !barrier.actions.length) {
-                return;
-            }
-
-            var action = barrier.actions.filter((item: IBarrier) => { return item.name == barrier.selectedAction.name; })[0];
-            action.action(self._game, destination, barrier, action);
-            barrier.actions.remove(action);
-
-            if (barrier.actions.length) {
-                barrier.selectedAction = barrier.actions[0];
-            }
-
-            self.saveGame();
-        }
-
-        scoreChange = (change: number): void => {
-            var self = this;
-
-            // Todo: change if xp can be lost.
-            if (change > 0) {
-                var character = self._game.character;
-                var levelUp = self._rules && self._rules.scoreChange && self._rules.scoreChange(self._game, change);
-
-                if (levelUp) {
-                    self._game.state = StoryScript.GameState.LevelUp;
-                }
-            }
-        }
-
-        hitpointsChange = (change: number): void => {
-            var self = this;
-
-            if (self._rules.hitpointsChange) {
-                self._rules.hitpointsChange(self._game, change);
-            }
-        }
-
-        changeGameState = (state: StoryScript.GameState) => {
-            var self = this;
-
-            if (state == StoryScript.GameState.GameOver || state == StoryScript.GameState.Victory) {
-                if (self._rules.determineFinalScore) {
-                    self._rules.determineFinalScore(self._game);
-                }
-                self.updateHighScore();
-                self._dataService.save(StoryScript.DataKeys.HIGHSCORES, self._game.highScores);
-            }
-        }
-
-        dynamicLocations = (): boolean => {
-            var self = this;
-            return self._game.definitions.dynamicLocations;
-        }
-
-        private resume(locationName: string) {
-            var self = this;
-
-            self.setupCharacter();
-
-            var lastLocation = self._game.locations.get(locationName);
-            var previousLocationName = self._dataService.load<string>(StoryScript.DataKeys.PREVIOUSLOCATION);
-
-            if (previousLocationName) {
-                self._game.previousLocation = self._game.locations.get(previousLocationName);
-            }
-
-            // Reset loading descriptions so changes to the descriptions are shown right away instead of requiring a world reset.
-            self.resetLoadedHtml(self._game.locations);
-            self.resetLoadedHtml(self._game.character);
-
-            self._locationService.changeLocation(lastLocation.id, false, self._game);
-
-            self._game.state = StoryScript.GameState.Play;
-        }
-
-        private enemyDefeated(enemy: ICompiledEnemy) {
-            var self = this;
-
-            if (enemy.items) {
-                enemy.items.forEach((item: IItem) => {
-                    self._game.currentLocation.items.push(item);
-                });
-
-                enemy.items.length = 0;
-            }
-
-            self._game.character.currency = self._game.character.currency || 0;
-            self._game.character.currency += enemy.currency || 0;
-            self._game.statistics.enemiesDefeated = self._game.statistics.enemiesDefeated || 0;
-            self._game.statistics.enemiesDefeated += 1;
-            self._game.currentLocation.enemies.remove(enemy);
-
-            if (self._rules.enemyDefeated) {
-                self._rules.enemyDefeated(self._game, enemy);
-            }
-
-            if (enemy.onDefeat) {
-                enemy.onDefeat(self._game);
-            }
-        }
-
-        private SaveWorldState() {
-            var self = this;
-            self._dataService.save(StoryScript.DataKeys.CHARACTER, self._game.character);
-            self._dataService.save(StoryScript.DataKeys.STATISTICS, self._game.statistics);
-            self._dataService.save(StoryScript.DataKeys.WORLDPROPERTIES, self._game.worldProperties);
-            self._locationService.saveWorld(self._game.locations);
-        }
-
-        private setupGame(): void {
-            var self = this;
-            self.initLogs();
-            self._game.fight = self.fight;
-
-            // Add a string variant of the game state so the string representation can be used in HTML instead of a number.
-            if (!(<any>self._game).stateString) {
-                Object.defineProperty(self._game, 'stateString', {
-                    enumerable: true,
-                    get: function () {
-                        return GameState[self._game.state];
-                    }
-                });
-            }
-
-            self.setupCombinations();
-            self._locationService.init(self._game);
-        }
-
-        private initLogs() {
-            var self = this;
-
-            self._game.actionLog = [];
-            self._game.combatLog = [];
-
-            self._game.logToLocationLog = (message: string) => {
-                self._game.currentLocation.log = self._game.currentLocation.log || [];
-                self._game.currentLocation.log.push(message);
-            }
-
-            self._game.logToActionLog = (message: string) => {
-                self._game.actionLog.splice(0, 0, message);
-            }
-
-            self._game.logToCombatLog = (message: string) => {
-                self._game.combatLog.splice(0, 0, message);
-            }
-        }
-
-        private setupCombinations() {
-            var self = this;
-
-            self._game.combinations = {
-                activeCombination: null,
-                tryCombine: (target: ICombinable): boolean => {
-                    var result = self._combinationService.tryCombination(target);
-
-                    if (typeof result === 'string') {
-                        var evt = new Event('combinationFinished');
-                        (<any>evt).combineText = result;
-                        self._events.dispatchEvent(evt);
-                        return true;
-                    }
-
-                    return false;
-                },
-                getCombineClass: (tool: ICombinable): string => {
-                    return self._combinationService.getCombineClass(tool);
-                }
+    saveGame = (name?: string): void => {
+        if (name) {
+            var saveGame = <ISaveGame>{
+                name: name,
+                character: this._game.character,
+                world: this._locationService.copyWorld(),
+                worldProperties: this._game.worldProperties,
+                statistics: this._game.statistics,
+                location: this._game.currentLocation && this._game.currentLocation.id,
+                previousLocation: this._game.previousLocation ? this._game.previousLocation.id : null,
+                state: this._game.state
             };
+
+            this._dataService.save(DataKeys.GAME + '_' + name, saveGame);
+
+            if ( this._game.playState === PlayState.Menu) {
+                this._game.playState = null;
+            }
+        }
+        else {
+            SaveWorldState(this._dataService, this._locationService, this._game);
+        }
+    }
+
+    loadGame = (name: string): void => {
+        var saveGame = this._dataService.load<ISaveGame>(DataKeys.GAME + '_' + name);
+
+        if (saveGame) {
+            this._game.loading = true;
+            this._game.character = saveGame.character;
+            this._game.locations = saveGame.world;
+            this._game.worldProperties = saveGame.worldProperties;
+        
+            this._locationService.init(this._game, false);
+            this._game.currentLocation = this._game.locations.get(saveGame.location);
+
+            if (saveGame.previousLocation) {
+                this._game.previousLocation = this._game.locations.get(saveGame.previousLocation);
+            }
+
+            SaveWorldState(this._dataService, this._locationService, this._game);
+            this._dataService.save(DataKeys.LOCATION, this._game.currentLocation.id);
+            this._game.actionLog = [];
+            this._game.state = saveGame.state;
+
+            this.initSetInterceptors();
+            
+            if ( this._game.playState === PlayState.Menu) {
+                this._game.playState = null;
+            }
+
+            this._game.combinations.combinationResult.reset();
+
+            if (this._rules.setup.continueGame) {
+                this._rules.setup.continueGame(this._game);
+            }
+
+            setTimeout(() => {
+                this._game.loading = false;
+            }, 0);
+        }
+    }
+
+    getSaveGames = (): string[] => this._dataService.getSaveKeys();
+
+    hasDescription = (entity: { id?: string, description?: string }): boolean => {
+        if (!entity.description) {
+            return false;
         }
 
-        private setupCharacter(): void {
-            var self = this;
+        if (!this._parsedDescriptions.get(entity.id)) {
+            var descriptionNode = getParsedDocument('description', entity.description)[0];
+            this._parsedDescriptions.set(entity.id, descriptionNode?.innerHTML?.trim() !== '');
+        }
 
-            createReadOnlyCollection(self._game.character, 'items', isEmpty(self._game.character.items) ? [] : <any>self._game.character.items);
-            createReadOnlyCollection(self._game.character, 'quests', isEmpty(self._game.character.quests) ? [] : <any>self._game.character.quests);
+        return this._parsedDescriptions.get(entity.id);
+    }
 
-            addProxy(self._game.character, 'item', self._game, self._rules);
+    setCurrentDescription = (type: string, item: any, title: string): void => {
+        item.description = checkAutoplay(this._dataService, getParsedDocument('description', item.description, true)[0].innerHTML);
 
-            Object.defineProperty(self._game.character, 'combatItems', {
-                get: function () {
-                    return self._game.character.items.filter(e => { return e.useInCombat; });
+        this._game.currentDescription = {
+            title: title,
+            type: type, 
+            item: item
+        };
+
+        this._game.playState = PlayState.Description;
+    }
+
+    initCombat = (): void => {
+        if (this._rules.combat && this._rules.combat.initCombat) {
+            this._rules.combat.initCombat(this._game, this._game.currentLocation);
+        }
+
+        this._game.currentLocation.activeEnemies.forEach(enemy => {
+            if (enemy.onAttack) {
+                enemy.onAttack(this._game);
+            }
+        });
+
+        this._game.playState = PlayState.Combat;
+    }
+
+    fight = (enemy: IEnemy, retaliate?: boolean) => {
+        if (!this._rules.combat || !this._rules.combat.fight)
+        {
+            return;
+        }
+
+        this._rules.combat.fight(this._game, enemy, retaliate);
+
+        if (enemy.hitpoints <= 0) {
+            this.enemyDefeated(enemy);
+        }
+
+        if (this._game.character.currentHitpoints <= 0) {
+            this._game.playState = null;
+            this._game.state = GameState.GameOver;
+        }
+
+        this.saveGame();
+    }
+
+    useItem = (item: IItem): void => {
+        var useItem = (this._rules.exploration?.onUseItem(this._game, item) && item.use) ?? item.use;
+
+        if (useItem) {
+            item.use(this._game, item);
+        }
+    }
+
+    executeBarrierAction = (barrier: IBarrier, action: IBarrierAction, destination: IDestination): void => {
+        action.execute(this._game, barrier, destination);
+        var actionIndex = barrier.actions.indexOf(action);
+        barrier.actions.splice(actionIndex, 1);
+        this.saveGame();
+    }
+
+    getCurrentMusic = (): string => {
+        var currentEntry = !this._musicStopped && this._rules.setup.playList && this._rules.setup.playList.filter(e => this._game.playState ? e[0] === this._game.playState : e[0] === this._game.state)[0];
+        return currentEntry && <string>currentEntry[1];
+    }
+
+    startMusic = (): boolean => this._musicStopped = false;
+
+    stopMusic = (): boolean => this._musicStopped = true;
+
+    playSound = (fileName: string): void => {
+        this._game.sounds.soundQueue.push(fileName);
+    }
+
+    private initTexts = (): void => {
+        var defaultTexts = new DefaultTexts();
+
+        for (var n in defaultTexts.texts) {
+            this._texts[n] = this._texts[n] ? this._texts[n] : defaultTexts.texts[n];
+        }
+
+        this._texts.format = defaultTexts.format;
+        this._texts.titleCase = defaultTexts.titleCase;
+    }
+
+    private resume = (locationName: string): void => {
+        var lastLocation = this._game.locations.get(locationName) || this._game.locations.get('start');
+        var previousLocationName = this._dataService.load<string>(DataKeys.PREVIOUSLOCATION);
+
+        if (previousLocationName) {
+            this._game.previousLocation = this._game.locations.get(previousLocationName);
+        }
+
+        this._locationService.changeLocation(lastLocation.id, false, this._game);
+
+        this._game.state = GameState.Play;
+    }
+
+    private createCharacter = (characterData : ICharacter): void => {
+        var character = this._characterService.createCharacter(this._game, characterData);
+        character.items = character.items || [];
+        character.quests = character.quests || [];
+        this._dataService.save(DataKeys.CHARACTER, character);
+        this._game.character = this._dataService.load(DataKeys.CHARACTER);
+    }
+
+    private enemyDefeated = (enemy: IEnemy): void => {
+        if (enemy.items) {
+            enemy.items.forEach((item: IItem) => {
+                if (!this._rules.combat?.beforeDrop || this._rules.combat.beforeDrop(this._game, enemy, item)) {
+                    this._game.currentLocation.items.push(item);
                 }
             });
+
+            enemy.items.length = 0;
         }
 
-        private resetLoadedHtml(entity: any): void {
-            var self = this;
+        this._game.character.currency = this._game.character.currency || 0;
+        this._game.character.currency += enemy.currency || 0;
+        this._game.statistics.enemiesDefeated = this._game.statistics.enemiesDefeated || 0;
+        this._game.statistics.enemiesDefeated += 1;
+        this._game.currentLocation.enemies.remove(enemy);
 
-            if (entity === null) {
-                return;
-            }
-
-            if (entity.hasHtmlDescription) {
-                if (entity.descriptions) {
-                    entity.descriptions = null;
-                    entity.text = null;
-                }
-                
-                if (entity.description) {
-                    entity.description = null;
-                }
-
-                if (entity.conversation && entity.conversation.nodes) {
-                    entity.conversation.nodes = null;
-                }
-            }
-
-            for (var i in Object.keys(entity))
-            {
-                var key = Object.keys(entity)[i];
-
-                if (entity.hasOwnProperty(key)) {
-                    var nestedEntity = entity[key];
-
-                    if (typeof nestedEntity === 'object') {
-                        this.resetLoadedHtml(entity[key]);
-                    }
-                }
-            }
+        if (this._rules.combat && this._rules.combat.enemyDefeated) {
+            this._rules.combat.enemyDefeated(this._game, enemy);
         }
 
-        private processMediaTags(parent: any, key: string) {
-            var self = this;
-            var descriptionEntry = parent;
-            var descriptionKey = key;
-    
-            // For locations, the descriptions collection must be updated as well as the text.
-            if (parent === self._game.currentLocation) {
-                var location = self._game.currentLocation;
-                descriptionEntry = location.descriptions;
-    
-                for (let n in location.descriptions) {
-                    if (location.descriptions[n] === location.text) {
-                        descriptionKey = n;
-                        break;
-                    }
+        if (enemy.onDefeat) {
+            enemy.onDefeat(this._game);
+        }
+    }
+
+    private setupGame = (): void => {
+        this.initLogs();
+        this._game.fight = this.fight;
+        this._game.sounds = { 
+            startMusic: this.startMusic,
+            stopMusic: this.stopMusic,
+            playSound: this.playSound,
+            soundQueue: []
+        };
+
+        this.setupCombinations();
+        this._locationService.init(this._game);
+
+        this._game.changeLocation = (location, travel) => 
+        { 
+            this._locationService.changeLocation(location, travel, this._game);
+
+            if (travel) {
+                this.saveGame();
+            }
+        };
+    }
+
+    private initSetInterceptors = (): void => {
+        let currentHitpoints = this._game.character.currentHitpoints || this._game.character.hitpoints;
+        let score = this._game.character.score || 0;
+        let gameState = this._game.state;
+
+        Object.defineProperty(this._game.character, 'currentHitpoints', {
+            get: () => {
+                return currentHitpoints;
+            },
+            set: value => {
+                var change = value - currentHitpoints;
+                currentHitpoints = value;
+
+                if (this._rules.character.hitpointsChange) {
+                    this._rules.character.hitpointsChange(this._game, change);
                 }
             }
+        });
 
-            if (descriptionKey !== key) {
-                self.updateMediaTags(descriptionEntry, descriptionKey, self.mediaTags, '');
-            }
+        if (!this._game.character.score) {
+            Object.defineProperty(this._game.character, 'score', {
+                get: () => {
+                    return score;
+                },
+                set: value => {
+                    var change = value - score;
+                    score = value;
 
-            var startPlay = self.updateMediaTags(parent, key, self.mediaTags, 'added="added"');
-
-            if (startPlay)
-            {
-                self.startPlay('audio', parent, key);
-                self.startPlay('video', parent, key);
-            }
-        }
-
-        private startPlay(type: string, parent: any, key: string): void {
-            var self = this;
-
-            setTimeout(function () {
-                var mediaElements = document.getElementsByTagName(type);
-
-                for (var i = 0; i < mediaElements.length; i++) {
-                    var element = <HTMLMediaElement>mediaElements[i];
-                    var added = element.getAttribute('added');
-
-                    if (element.play && added === 'added') {
-                        self.updateMediaTags(parent, key, ['added="added"'], '');
-
-                        // Chrome will block autoplay when the user hasn't interacted with the page yet, use this workaround to bypass that.
-                        const playPromise = element.play();
-
-                        if (playPromise !== null) {
-                            playPromise.catch(() => { 
-                                setTimeout(function () {
-                                    element.play(); 
-                                }, 1000);
-                            });
+                    // Change when xp can be lost.
+                    if (change > 0) {
+                        var levelUp = this._rules.general && this._rules.general.scoreChange && this._rules.general.scoreChange(this._game, change);
+        
+                        if (levelUp) {
+                            this._game.playState = null;
+                            this._game.state = GameState.LevelUp;
+                            this._characterService.setupLevelUp();
                         }
                     }
                 }
-            }, 0);
+            });
         }
-
-        private updateMediaTags(entity: any, key: string, tagToFind: string[], tagToReplace: string): boolean {
-            let startPlay = false;
-
-            if (entity[key]) {
-                for (var i in tagToFind)
+    
+        if (!this._game.state) {
+            Object.defineProperty(this._game, 'state', {
+                get: () =>
                 {
-                    var tag = tagToFind[i];
+                    return gameState;
+                },
+                set: state => {
+                    if (state === GameState.GameOver || state === GameState.Victory) {
+                        this._game.playState = null;
 
-                    if (entity[key].indexOf(tag) > -1) {
-                        entity[key] = entity[key].replace(tag, tagToReplace);
-                        startPlay = true;
-                    }
-                }
-            }
-
-            return startPlay;
-        }
-
-        private updateHighScore(): void {
-            var self = this;
-            var scoreEntry = { name: self._game.character.name, score: self._game.character.score };
-
-            if (!self._game.highScores || !self._game.highScores.length) {
-                self._game.highScores = [];
-            }
-
-            var scoreAdded = false;
-
-            self._game.highScores.forEach((entry) => {
-                if (self._game.character.score > entry.score && !scoreAdded) {
-                    var index = self._game.highScores.indexOf(entry);
-
-                    if (self._game.highScores.length >= 5) {
-                        self._game.highScores.splice(index, 1, scoreEntry);
-                    }
-                    else {
-                        self._game.highScores.splice(index, 0, scoreEntry);
+                        if (this._rules.general && this._rules.general.determineFinalScore) {
+                            this._rules.general.determineFinalScore(this._game);
+                        }
+                        
+                        this.updateHighScore();
+                        this._dataService.save(DataKeys.HIGHSCORES, this._game.highScores);
                     }
 
-                    scoreAdded = true;
+                    gameState = state;
                 }
             });
-
-            if (self._game.highScores.length < 5 && !scoreAdded) {
-                self._game.highScores.push(scoreEntry);
-            }
-
-            self._dataService.save(StoryScript.DataKeys.HIGHSCORES, self._game.highScores);
         }
+    }
+
+    private initLogs = (): void => {
+        this._game.actionLog = [];
+        this._game.combatLog = [];
+
+        this._game.logToLocationLog = (message: string) => {
+            this._game.currentLocation.log = this._game.currentLocation.log || [];
+            this._game.currentLocation.log.push(message);
+        }
+
+        this._game.logToActionLog = (message: string) => {
+            this._game.actionLog.splice(0, 0, message);
+        }
+
+        this._game.logToCombatLog = (message: string) => {
+            this._game.combatLog.splice(0, 0, message);
+        }
+    }
+
+    private setupCombinations = (): void => {
+        this._game.combinations = {
+            combinationResult: {
+                done: false,
+                text: null,
+                featuresToRemove: [],
+                reset: (): void => {
+                    var result = this._game.combinations.combinationResult;
+                    result.done = false;
+                    result.text = null;
+                    result.featuresToRemove.length = 0;
+                }
+            },
+            activeCombination: null,
+            tryCombine: (target: ICombinable): boolean => {
+                var activeCombo = this._game.combinations.activeCombination;
+                var result = this._combinationService.tryCombination(target);
+
+                if (result.text) {
+                    let featuresToRemove: string[] = [];
+
+                    if (result.success) {
+                        if (result.removeTarget) {
+                            featuresToRemove.push(target.id);
+                        }
+
+                        if (result.removeTool) {
+                            featuresToRemove.push(activeCombo.selectedTool.id);
+                        }
+                    }
+
+                    this._game.combinations.combinationResult.featuresToRemove = featuresToRemove;
+                    return true;
+                }
+
+                return false;
+            },
+            getCombineClass: (tool: ICombinable): string => {
+                return this._combinationService.getCombineClass(tool);
+            }
+        };
+    }
+
+    private updateHighScore = (): void => {
+        var scoreEntry = { name: this._game.character.name, score: this._game.character.score };
+
+        if (!this._game.highScores || !this._game.highScores.length) {
+            this._game.highScores = [];
+        }
+
+        var scoreAdded = false;
+
+        this._game.highScores.forEach((entry) => {
+            if (this._game.character.score > entry.score && !scoreAdded) {
+                var index = this._game.highScores.indexOf(entry);
+
+                if (this._game.highScores.length >= 5) {
+                    this._game.highScores.splice(index, 1, scoreEntry);
+                }
+                else {
+                    this._game.highScores.splice(index, 0, scoreEntry);
+                }
+
+                scoreAdded = true;
+            }
+        });
+
+        if (this._game.highScores.length < 5 && !scoreAdded) {
+            this._game.highScores.push(scoreEntry);
+        }
+
+        this._dataService.save(DataKeys.HIGHSCORES, this._game.highScores);
     }
 }

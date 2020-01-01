@@ -1,96 +1,59 @@
-namespace StoryScript {
-    export class ObjectFactory {
-        static _isInitialized = false;
-        private _eventTarget = new EventTarget(null);
+import { IGame } from './Interfaces/game';
+import { IInterfaceTexts } from './Interfaces/interfaceTexts';
+import { IRules } from './Interfaces/rules/rules';
+import { LocalStorageService } from './Services/LocalStorageService';
+import { HelperService } from './Services/helperService';
+import { TradeService } from './Services/TradeService';
+import { DataService } from './Services/DataService';
+import { ConversationService } from './Services/ConversationService';
+import { LocationService } from './Services/LocationService';
+import { CombinationService } from './Services/CombinationService';
+import { CharacterService } from './Services/characterService';
+import { GameService } from './Services/gameService';
+import { GetDefinitions } from './ObjectConstructors';
+import { ICharacterService } from './Interfaces/services/characterService';
+import { IGameService } from './Interfaces/services//gameService';
+import { ITradeService } from './Interfaces/services/tradeService';
+import { IConversationService } from './Interfaces/services/conversationService';
+import { ICombinationService } from './Interfaces/services/combinationService';
 
-        private _game: IGame = <IGame>{};
-        private _definitions: IDefinitions = <IDefinitions>{};
+export class ObjectFactory {
+    private _game: IGame = <IGame>{};
+    private _texts: IInterfaceTexts;
+    private _rules: IRules;
 
-        private _nameSpace: string;
-        private _texts: IInterfaceTexts;
-        private _rules: IRules;
+    private _characterService: ICharacterService;
+    private _gameService: IGameService;
+    private _tradeService: ITradeService;
+    private _conversationService: IConversationService;
+    private _combinationService: ICombinationService;
 
-        private _localStorageService: ILocalStorageService = new LocalStorageService();
-
-        private _dataService: IDataService;
-        private _locationService: ILocationService;
-        private _characterService: ICharacterService;
-        private _helperService: IHelperService;
-        private _gameService: IGameService;
-
-        private _tradeService: ITradeService;
-        private _conversationService: IConversationService;
-        private _combinationService: ICombinationService;
-
-        constructor(nameSpace: string, rules: IRules, texts: IInterfaceTexts) {
-            var self = this;
-            self._nameSpace = nameSpace;
-            self._texts = texts;
-            self._rules = rules;
-        }
-
-        GetEventListener = (): EventTarget => {
-            var self = this;
-            return self._eventTarget;
-        }
-
-        GetGame = (): IGame => {
-            var self = this;
-            self.init();
-            return self._game;
-        }
-
-        GetTexts = (): IInterfaceTexts => {
-            var self = this;
-            self.init();
-            return self._texts;
-        }
-
-        GetGameService = (): IGameService => {
-            var self = this;
-            self.init();
-            return self._gameService;
-        }
-
-        GetTradeService = (): ITradeService => {
-            var self = this;
-            self.init();
-            return self._tradeService;
-        }
-
-        GetConversationService = (): IConversationService => {
-            var self = this;
-            self.init();
-            return self._conversationService;
-        }
-
-        GetCharacterService = (): ICharacterService => {
-            var self = this;
-            self.init();
-            return self._characterService;
-        }
-
-        GetCombinationService = (): ICombinationService => {
-            var self = this;
-            self.init();
-            return self._combinationService;
-        }
-
-        private init = (): void => {
-            var self = this;
-
-            if (!ObjectFactory._isInitialized)
-            {
-                self._helperService = new HelperService(self._game, self._rules);
-                self._tradeService = new TradeService(self._game, self._texts);
-                self._dataService = new DataService(self._localStorageService, self._eventTarget, self._game, self._nameSpace, self._definitions);
-                self._conversationService = new ConversationService(self._dataService, self._game, self._rules, self._texts);
-                self._combinationService = new CombinationService(self._game, self._rules, self._texts);
-                self._locationService = new LocationService(self._dataService, self._conversationService, self._rules, self._game, self._definitions);
-                self._characterService = new CharacterService(self._dataService, self._game, self._rules);
-                self._gameService = new GameService(self._dataService, self._locationService, self._characterService, self._combinationService, self._eventTarget, self._rules, self._helperService, self._game);
-                ObjectFactory._isInitialized = true;
-            }
-        }
+    constructor(nameSpace: string, rules: IRules, texts: IInterfaceTexts) {
+        this._texts = texts;
+        this._rules = rules;
+        this._game.definitions = GetDefinitions();
+        const localStorageService = new LocalStorageService();
+        const helperService = new HelperService(this._game);
+        const dataService = new DataService(localStorageService, nameSpace);
+        this._tradeService = new TradeService(this._game, this._texts);
+        this._conversationService = new ConversationService(dataService, this._game);
+        this._characterService = new CharacterService(this._game, this._rules);
+        const locationService = new LocationService(dataService, this._rules, this._game, this._game.definitions);
+        this._combinationService = new CombinationService(dataService, locationService, this._game, this._rules, this._texts);
+        this._gameService = new GameService(dataService, locationService, this._characterService, this._combinationService, this._rules, helperService, this._game, this._texts);
     }
+
+    GetGame = (): IGame => this._game;
+
+    GetTexts = (): IInterfaceTexts => this._texts;
+
+    GetGameService = (): IGameService => this._gameService;
+
+    GetTradeService = (): ITradeService => this._tradeService;
+
+    GetConversationService = (): IConversationService => this._conversationService;
+
+    GetCharacterService = (): ICharacterService => this._characterService;
+
+    GetCombinationService = (): ICombinationService => this._combinationService;
 }

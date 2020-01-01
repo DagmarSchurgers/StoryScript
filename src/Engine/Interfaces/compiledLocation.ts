@@ -1,135 +1,62 @@
-﻿namespace StoryScript {
+import { ICollection } from './collection';
+import { ILocation } from './location';
+import { IEnemy } from './enemy';
+import { IPerson } from './person';
+import { IItem } from './item';
+import { IDestination } from './destination';
+import { IAction } from './storyScript';
+
+/**
+ * A location compiled for runtime.
+ */
+export interface ICompiledLocation extends ILocation {
     /**
-     * A location compiled for runtime.
+     * The id of the location.
      */
-    export interface ICompiledLocation {
-        /**
-         * The id of the location.
-         */
-        id: string;
+    id: string;
 
-        /**
-         * The name of the location as shown to the player.
-         */
-        name: string;
+    /**
+     * The enemies that are present (active) at this location.
+     */
+    activeEnemies?: ICollection<IEnemy>;
 
-        /**
-         * You can specify a function to determine a description selector or use a string value. When specified, the selector is used for
-         * setting a location's description from a list of available alternatives. If you want to have a description selector function for 
-         * all locations, use the descriptionSelector function of the game rules.
-         */
-        descriptionSelector?: ((game: IGame) => string) | string;
+    /**
+     * The characters that are present (active) at this location that the player can interact with.
+     */
+    activePersons?: ICollection<IPerson>;
 
-        /**
-         * The features of this location that the player can interact with.
-         */
-        features?: ICollection<IFeature>;
+    /**
+     * The items that are found (active) at this location.
+     */
+    activeItems?: ICollection<IItem>;
 
-        /**
-         * The enemies that can be present at this location.
-         */
-        enemies?: ICompiledCollection<IEnemy, ICompiledEnemy>;
+    /**
+     * The other locations in the game world that are reachable (active) from this one.
+     */
+    activeDestinations?: ICollection<IDestination>;
 
-        /**
-         * The enemies that are present (active) at this location.
-         */
-        activeEnemies?: ICompiledCollection<IEnemy, ICompiledEnemy>;
+    /**
+     * The actions the player can choose from (active) at this location.
+     */
+    activeActions?: ICollection<IAction>;
 
-        /**
-         * The characters that can be present at this location that the player can interact with.
-         */
-        persons?: ICompiledCollection<IPerson, ICompiledPerson>;
+    /**
+     * The current description shown to the player for this location.
+     */
+    description: string;
 
-        /**
-         * The characters that are present (active) at this location that the player can interact with.
-         */
-        activePersons?: ICompiledCollection<IPerson, ICompiledPerson>;
+    /**
+     * True if the player has visited this location, false otherwise.
+     */
+    hasVisited?: boolean;
 
-        /**
-         * The items that can be found at this location.
-         */
-        items?: ICollection<IItem>;
+    /**
+     * All the descriptions available for this location, per description key.
+     */
+    descriptions?: { [key: string] : string; };
 
-        /**
-         * The items that are found (active) at this location.
-         */
-        activeItems?: ICollection<IItem>;
-
-        /**
-         * The other locations in the game world that can be reachable from this one.
-         */
-        destinations?: ICollection<IDestination>;
-
-        /**
-         * The other locations in the game world that are reachable (active) from this one.
-         */
-        activeDestinations?: ICollection<IDestination>;
-
-         /**
-         * When specified, the functions in this array will be called when the player enters the location for the first time.
-         */       
-        enterEvents?: [(game: IGame) => void];
-
-        /**
-         * When specified, the functions in this array will be called when the player leaves the location.
-         */
-        leaveEvents?: [(game: IGame) => void];
-
-        /**
-         * Actions that the player can perform at this location.
-         */        
-        actions?: ICollection<IAction>;
-
-        /**
-         * Actions that the player can perform at this location when in combat.
-         */        
-        combatActions?: ICollection<IAction>;
-
-        /**
-         * The current description shown to the player for this location.
-         */
-        text?: string;
-
-        /**
-         * True if the player has visited this location, false otherwise.
-         */
-        hasVisited?: boolean;
-
-        /**
-         * All the descriptions available for this location, per description key.
-         */
-        descriptions?: { [key: string] : string; };
-
-         /**
-         * Trade objects present at this location. If you don't want to use persons to trade with, you can use this object. Useful for
-         * e.g. adding containers like closets to the game.
-         */       
-        trade?: ITrade;
-
-        /**
-         * The person the player is currently talking to.
-         */
-        activePerson?: ICompiledPerson;
-
-         /**
-         * The trade object or person the player is currently trading with.
-         */
-        activeTrade?: ITrade;
-
-        /**
-         * Messages logged to this location.
-         */
-        log?: string[];
-
-        /**
-         * When specified, this function will be called on leaving a location to determine whether the player has done all
-         * there is to do on this location.
-         * @param game The game object
-         * @param location The location the player is entering
-         */
-        // Todo: keep this on the general code or is this game specific?
-        complete?(game: IGame, location: ICompiledLocation): boolean;
-
-        
-    }
+    /**
+     * Messages logged to this location.
+     */
+    log?: string[];
 }

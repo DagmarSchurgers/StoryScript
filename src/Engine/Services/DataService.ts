@@ -1,378 +1,255 @@
-﻿namespace StoryScript {
-    export interface IDataService {
-        functionList: { [type: string]: { [id: string]: { function: Function, hash: number } } };
-        loadDescription(type: string, item: { id?: string, description?: string }): string;
-        hasDescription(type: string, item: { id?: string, description?: string }): boolean;
-        save<T>(key: string, value: T, pristineValues?: T): void;
-        load<T>(key: string): T;
-        getSaveKeys(): string[];
-        copy<T>(value: T, pristineValue: T): T;
+﻿import { IFunctionIdParts } from '../Interfaces/services/functionIdParts';
+import { DataKeys } from '../DataKeys';
+import { getPlural, isEmpty } from '../utilities';
+import { initCollection, setReadOnlyProperties, GetFunctions, GetDescriptions } from '../ObjectConstructors';
+import { parseFunction } from '../globals';
+import { IDataService } from '../Interfaces/services/dataService';
+import { ILocalStorageService } from '../Interfaces/services/localStorageService';
+
+export class DataService implements IDataService {
+    private functionArgumentRegex = /\([a-z-A-Z0-9:, ]{1,}\)/;
+
+    constructor(private _localStorageService: ILocalStorageService, private _gameNameSpace: string) {
     }
-}
+    
+    save = <T>(key: string, value: T, pristineValues?: T): void => {
+        var clone = this.buildClone(null, value, pristineValues);
+        this._localStorageService.set(this._gameNameSpace + '_' + key, JSON.stringify({ data: clone }));
+    }
 
-namespace StoryScript {
-    export class DataService implements IDataService {
-        public functionList: { [type: string]: { [id: string]: { function: Function, hash: number } } };
-        private descriptionBundle: Map<string, string>;
-        private loadedDescriptions: { [id: string]: string };
-        private functionArgumentRegex = /\([a-z-A-Z0-9: ]{1,}\)/;
+    copy = <T>(value: T, pristineValue: T): T => {
+        return this.buildClone(null, value, pristineValue);
+    }
 
-        constructor(private _localStorageService: ILocalStorageService, private _events: EventTarget, private _game: IGame, private _gameNameSpace: string, private _definitions: IDefinitions) {
-            var self = this;
-            self._definitions = self.getDefinitions(_definitions);
-            self._game.definitions = self._definitions;
-            self.registerFunctions();
-            self.descriptionBundle = window.StoryScript.GetGameDescriptions();
-        }
-        
-        save = <T>(key: string, value: T, pristineValues?: T): void => {
-            var self = this;
-            var clone = self.buildClone(value, pristineValues);
-            self._localStorageService.set(self._gameNameSpace + '_' + key, JSON.stringify({ data: clone }));
-        }
+    getSaveKeys = (): string[] => this._localStorageService.getKeys(this._gameNameSpace + '_' + DataKeys.GAME + '_');
 
-        copy = <T>(value: T, pristineValue: T): T => {
-            var self = this;
-            return self.buildClone(value, pristineValue);
-        }
+    load = <T>(key: string): T => {
+        try {
+            var jsonData = this._localStorageService.get(this._gameNameSpace + '_' + key);
 
-        getSaveKeys = (): string[] => {
-            var self = this;
-            return self._localStorageService.getKeys(self._gameNameSpace + '_' + DataKeys.GAME + '_');
-        }
+            if (jsonData) {
+                var data = JSON.parse(jsonData).data;
 
-        load = <T>(key: string): T => {
-            var self = this;
-
-            try {
-                var jsonData = self._localStorageService.get(self._gameNameSpace + '_' + key);
-
-                if (jsonData) {
-                    var data = JSON.parse(jsonData).data;
-
-                    if (isEmpty(data)) {
-                        return null;
-                    }
-
-                    self.restoreFunctions(data);
-                    return data;
+                if (isEmpty(data)) {
+                    return null;
                 }
 
-                return null;
-            }
-            catch (exception) {
-                console.log('No data loaded for key ' + key + '. Error: ' + exception.message);
+                var functionList = GetFunctions();
+                this.restoreObjects(functionList, null, data);
+                setReadOnlyProperties(key, data);
+                return data;
             }
 
             return null;
         }
-
-        loadDescription = (type: string, item: { id?: string, description?: string, pictureFileName?: string, hasHtmlDescription?: boolean }): string => {
-            var self = this;
-            var identifier = self.GetIdentifier(type, item);
-
-            if (!self.loadedDescriptions) {
-                self.loadedDescriptions = {};
-            }
-
-            var loadedDescription = self.loadedDescriptions[identifier];
-
-            if (loadedDescription) {
-                return loadedDescription;
-            }
-            
-            var html = self.descriptionBundle.get(identifier);
-
-            if (html === undefined) {
-                console.log('No file ' + identifier + '.html found. Did you create this file already?');
-                self.loadedDescriptions[identifier] = null;
-                return null;
-            }
-
-            var parser = new DOMParser();
-            var htmlDoc = parser.parseFromString(html, 'text/html');
-            var pictureElement = htmlDoc.getElementsByClassName('picture')[0];
-            var pictureSrc = pictureElement && pictureElement.getAttribute('src');
-
-            if (pictureSrc) {
-                item.pictureFileName = pictureSrc;
-            }
-
-            // Track that this item had a HTML description so it can be re-loaded later.
-            item.hasHtmlDescription = true;
-            item.description = html;
-            self.loadedDescriptions[identifier] = html;
-            return html;
+        catch (exception) {
+            console.log('No data loaded for key ' + key + '. Error: ' + exception.message);
         }
 
-        hasDescription = (type: string, item: { id?: string, description?: string }): boolean => {
-            var self = this;
-            var identifier = self.GetIdentifier(type, item);
-            return self.descriptionBundle.get(identifier) != null;
-        }
+        return null;
+    }
 
-        private GetIdentifier(type: string, item: { id?: string; description?: string; pictureFileName?: string; hasHtmlDescription?: boolean; }) {
-            return (type + '/' + item.id).toLowerCase();
-        }
-
-        private getDefinitions(definitions: IDefinitions) {
-            var self = this;
-            var nameSpaceObject = window[self._gameNameSpace];
-
-            // Todo: can this typing be fixed?
-            definitions.locations = <any>[];
-            self.moveObjectPropertiesToArray(nameSpaceObject['Locations'], definitions.locations);
-
-            definitions.enemies = <any>[];
-            self.moveObjectPropertiesToArray(nameSpaceObject['Enemies'], definitions.enemies);
-
-            definitions.persons = <any>[];
-            self.moveObjectPropertiesToArray(nameSpaceObject['Persons'], definitions.persons);
-
-            definitions.items = <any>[];
-            self.moveObjectPropertiesToArray(nameSpaceObject['Items'], definitions.items);
-
-            definitions.quests = <any>[];
-            self.moveObjectPropertiesToArray(nameSpaceObject['Quests'], definitions.quests);
-
-            definitions.actions = <any>[];
-            self.moveObjectPropertiesToArray(window['StoryScript']['Actions'], definitions.actions);
-            self.moveObjectPropertiesToArray(nameSpaceObject['Actions'], definitions.actions);
-
-            return definitions;
-        }
-
-        private moveObjectPropertiesToArray<T>(object: {}, collection: [() => T]) {
-            for (var n in object) {
-                if (object.hasOwnProperty(n)) {
-                    collection.push(object[n]);
-                }
+    private buildClone = (parentKey: string, values, pristineValues, clone?): any => {
+        if (!clone) {
+            clone = Array.isArray(values) ? [] : typeof values === 'object' ? {} : values;
+            if (clone == values) {
+                return clone;
             }
         }
 
-        private buildClone(values, pristineValues, clone?) {
-            var self = this;
-
-            if (!clone) {
-                clone = Array.isArray(values) ? [] : typeof values === "object" ? {} : values;
-                if (clone == values) {
-                    return clone;
-                }
+        for (var key in values) {
+            if (!values.hasOwnProperty(key)) {
+                continue;
             }
 
-            for (var key in values) {
-                if (!values.hasOwnProperty(key)) {
-                    continue;
-                }
+            var value = values[key];
 
-                var value = values[key];
-
-                if (value === undefined) {
-                    continue;
-                }
-                else if (value === null) {
-                    clone[key] = null;
-                    continue;
-                }
-                else if (value.isProxy) {
-                    continue;
-                }
-
-                self.getClonedValue(clone, value, key, pristineValues);
+            if (value === undefined) {
+                continue;
+            }
+            else if (value === null) {
+                clone[key] = null;
+                continue;
+            }
+            else if (value.isProxy) {
+                continue;
+            }
+            // Exclude descriptions and conversation nodes from the save data so they
+            // are refreshed on every browser refresh.
+            else if (values.id && (key === 'description' || key === 'descriptions')) {
+                clone[key] = null;
+                continue;
+            }
+            else if (parentKey === 'conversation' && key === 'nodes') {
+                clone[key] = null;
+                continue;
             }
 
-            return clone;
+            this.getClonedValue(clone, value, key, pristineValues);
         }
 
-        private getClonedValue(clone: any, value: any, key: string, pristineValues: any) {
-            var self = this;
-            
-            var pristineValue = pristineValues && pristineValues.hasOwnProperty(key) ? pristineValues[key] : undefined;
+        return clone;
+    }
 
-            if (Array.isArray(value)) {
-                clone[key] = [];
-                self.buildClone(value, pristineValue, clone[key]);
-            }
-            else if (typeof value === "object") {
-                if (Array.isArray(clone)) {
-                    clone.push({});
-                }
-                else {
-                    clone[key] = {};
+    private getClonedValue = (clone: any, value: any, key: string, pristineValues: any): void => {
+        var pristineValue = pristineValues && pristineValues.hasOwnProperty(key) ? pristineValues[key] : undefined;
+
+        if (Array.isArray(value)) {
+            clone[key] = [];
+            this.buildClone(key, value, pristineValue, clone[key]);
+
+            var additionalArrayProperties = Object.keys(value).filter(v => {
+                var isAdditionalProperty = isNaN(parseInt(v));
+
+                if (isAdditionalProperty) {
+                    if (v === 'push' || (value[v].name === 'push') && value[v].isProxy) {
+                        isAdditionalProperty = false;
+                    }
                 }
 
-                self.buildClone(value, pristineValue, clone[key]);
-            }
-            else if (typeof value === 'function') {
-                self.getClonedFunction(clone, value, key);
+                return isAdditionalProperty;
+            });
+
+            additionalArrayProperties.forEach(p => {
+                var arrayPropertyKey = `${key}_arrProps`;
+                clone[arrayPropertyKey] = clone[arrayPropertyKey] || {};
+                this.getClonedValue(clone[arrayPropertyKey], value[p], p, pristineValue);
+            });
+        }
+        else if (typeof value === 'object') {
+            if (Array.isArray(clone)) {
+                clone.push({});
             }
             else {
-                clone[key] = value;
+                clone[key] = {};
+            }
+
+            this.buildClone(key, value, pristineValue, clone[key]);
+        }
+        else if (typeof value === 'function') {
+            this.getClonedFunction(clone, value, key);
+        }
+        else {
+            clone[key] = value;
+        }
+    }
+
+    private getClonedFunction = (clone: any, value: any, key: string): void => {
+        if (!value.isProxy) {
+            if (value.functionId) {
+                clone[key] = value.functionId;
+            }
+            else {
+                // Functions added during runtime must be serialized using the function() notation in order to be deserialized back
+                // to a function. Convert values that have an arrow notation.
+                let functionString = value.toString();
+
+                if (functionString.indexOf('function') == -1) {
+                    var arrowIndex = functionString.indexOf('=>');
+
+                    // The arguments regex will fail when no arguments are used in production mode. Use empty brackets in that case.
+                    var args = functionString.match(this.functionArgumentRegex)?.[0] || '()';
+
+                    functionString = 'function' + args + functionString.substring(arrowIndex + 2).trim();
+                }
+
+                clone[key] = functionString;
             }
         }
+    }
 
-        private getClonedFunction(clone: any, value: any, key: string) {
-            var self = this;
+    private restoreObjects = (functionList: { [type: string]: { [id: string]: { function: Function, hash: number } } }, descriptions: Map<string, string>, loaded): void => {
+        descriptions = descriptions || GetDescriptions();
+        
+        for (var key in loaded) {
+            if (!loaded.hasOwnProperty(key)) {
+                continue;
+            }
 
-            if (!value.isProxy) {
-                if (value.functionId) {
-                    var parts = self.GetFunctionIdParts(value.functionId);
+            if (key === 'description' && loaded.id) {
+                var descriptionKey = `${loaded.type}_${loaded.id}`;
+                loaded[key] = descriptions.get(descriptionKey);
+                this.loadPictureFromDescription(loaded, key);
+                continue;
+            }
 
-                    if (parts.type === 'actions' && !self.functionList[parts.type][parts.functionId]) {
-                        var match: string = null;
+            var value = loaded[key];
 
-                        for (var n in self.functionList[parts.type]) {
-                            var entry = self.functionList[parts.type][n];
+            if (value === undefined) {
+                continue;
+            }
+            else if (Array.isArray(value)) {
+                initCollection(loaded, key);
+                this.restoreObjects(functionList, descriptions, value);
 
-                            if (entry.hash === parts.hash) {
-                                match = n;
-                                break;
-                            }
-                        }
+                var arrayPropertyKey = `${key}_arrProps`;
+                var additionalArrayProperties = loaded[arrayPropertyKey];
 
-                        if (match) {
-                            clone[key] = 'function#' + parts.type + '_' + match + '#' + parts.hash;
-                        }
-                        else {
-                            clone[key] = value.toString();
-                        }
-                    }
-                    else {
-                        clone[key] = value.functionId;
-                    }
+                if (additionalArrayProperties) {
+                    Object.keys(additionalArrayProperties).forEach(k => {
+                        value[k] = additionalArrayProperties[k];
+                    });
+
+                    delete loaded[arrayPropertyKey];
                 }
-                else {
-                    // Functions added during runtime must be serialized using the function() notation in order to be deserialized back
-                    // to a function. Convert values that have an arrow notation.
-                    let functionString = value.toString();
-
-                    if (functionString.indexOf('function') == -1) {
-                        var arrowIndex = functionString.indexOf('=>');
-
-                        functionString = 'function' + functionString.match(self.functionArgumentRegex)[0] + functionString.substring(arrowIndex + 2).trim();
-                    }
-
-                    clone[key] = functionString;
-                }
+            }
+            else if (typeof value === 'object') {
+                this.restoreObjects(functionList, descriptions, value);
+            }
+            else if (typeof value === 'string') {
+                this.restoreFunction(functionList, loaded, value, key);
             }
         }
+    }
 
-        private restoreFunctions(loaded) {
-            var self = this;
+    private restoreFunction = (functionList: { [type: string]: { [id: string]: { function: Function, hash: number } } }, loaded: any, value: any, key: string): void => {
+        if (value.indexOf('function#') > -1) {
+            var parts = this.GetFunctionIdParts(value);
+            var type = getPlural(parts.type);
+            var typeList = functionList[type];
 
-            for (var key in loaded) {
-                if (!loaded.hasOwnProperty(key)) {
-                    continue;
-                }
-
-                var value = loaded[key];
-
-                if (value == undefined) {
-                    return;
-                }
-                else if (typeof value === "object") {
-                    self.restoreFunctions(loaded[key]);
-                }
-                else if (typeof value === 'string') {
-                    self.restoreFunctionFromString(loaded, value, key);
-                }
+            if (!typeList[parts.functionId]) {
+                console.log('Function with key: ' + parts.functionId + ' could not be found!');
             }
+            else if (typeList[parts.functionId].hash != parts.hash) {
+                console.warn(`Function with key: ${parts.functionId} was found but the hash does not match the stored hash! Did you change the order of actions in an array and/or change the function content? If you changed the order, you need to reset the game world. If you changed only the content, you can ignore this warning.`);
+            }
+
+            loaded[key] = typeList[parts.functionId].function;
+        }
+        else if (typeof value === 'string' && value.indexOf('function') > -1) {
+            loaded[key] = parseFunction(value);
+        }
+    }
+
+    private GetFunctionIdParts = (value: string): IFunctionIdParts => {
+        var parts = value.split('#');
+        var functionPart = parts[1];
+        var functionParts = functionPart.split('|');
+        var type = functionParts[0];
+        functionParts.splice(0, 1);
+        var functionId = functionParts.join('|');
+        var hash = parseInt(parts[2]);
+
+        return {
+            type: type,
+            functionId: functionId,
+            hash: hash
+        }
+    }
+
+    private loadPictureFromDescription(loaded: any, key: string) {
+        if (!loaded[key]) {
+            return;
         }
 
-        private restoreFunctionFromString(loaded: any, value: any, key: string) {
-            var self = this;
+        var parser = new DOMParser();
+        var htmlDoc = parser.parseFromString(loaded[key], 'text/html');
+        var pictureElement = htmlDoc.getElementsByClassName('picture')[0];
+        var pictureSrc = pictureElement && pictureElement.getAttribute('src');
 
-            if (value.indexOf('function#') > -1) {
-                var parts = self.GetFunctionIdParts(value);
-                var typeList = self.functionList[parts.type];
-
-                if (!typeList[parts.functionId]) {
-                    console.log('Function with key: ' + parts.functionId + ' could not be found!');
-                }
-                else if (typeList[parts.functionId].hash != parts.hash) {
-                    console.log('Function with key: ' + parts.functionId + ' was found but the hash does not match the stored hash!');
-                }
-
-                loaded[key] = typeList[parts.functionId].function;
-            }
-            else if (typeof value === 'string' && value.indexOf('function') > -1) {
-                loaded[key] = (<any>value).parseFunction();
-            }
-        }
-
-        private GetFunctionIdParts(value: string): IFunctionIdParts {
-            var parts = value.split('#');
-            var functionPart = parts[1];
-            var functionParts = functionPart.split('_');
-            var type = functionParts[0];
-            functionParts.splice(0, 1);
-            var functionId = functionParts.join('_');
-            var hash = parseInt(parts[2]);
-
-            return {
-                type: type,
-                functionId: functionId,
-                hash: hash
-            }
-        }
-
-        private registerFunctions() {
-            var self = this;
-            var definitionKeys = getDefinitionKeys(self._definitions);
-            self.functionList = {};
-            var index = 0;
-
-            for (var i in self._definitions) {
-                var type = definitionKeys[index] || 'actions';
-                var definitions = self._definitions[i];
-                self.functionList[type] = {};
-
-                for (var j in definitions) {
-                    var definition = <() => {}>definitions[j];
-                    self.getFunctions(type, definitionKeys, StoryScript.definitionToObject(definition, type, self._definitions), null);
-                }
-
-                index++;
-            }
-        }
-
-        private getFunctions(type: string, definitionKeys: string[], entity: any, parentId: any) {
-            var self = this;
-
-            if (!parentId) {
-                parentId = entity.id || entity.name;
-            }
-
-            for (var key in entity) {
-                if (!entity.hasOwnProperty(key)) {
-                    continue;
-                }
-
-                if (definitionKeys.indexOf(key) != -1 || key === 'target' || (parentId.indexOf('_barrier') != -1 && key === 'key')) {
-                    continue;
-                }
-
-                var value = entity[key];
-
-                if (value == undefined) {
-                    return;
-                }
-                else if (typeof value === "object") {
-                    self.getFunctions(type, definitionKeys, entity[key], parentId + '_' + key);
-                }
-                else if (typeof value == 'function' && !value.isProxy) {
-                    var functionId = parentId + '_' + key;
-
-                    if (self.functionList[type][functionId]) {
-                        throw new Error('Trying to register a duplicate function key: ' + functionId);
-                    }
-
-                    self.functionList[type][functionId] = {
-                        function: value,
-                        hash: createFunctionHash(value)
-                    }
-                }
-            }
+        if (pictureSrc) {
+            loaded.picture = pictureSrc;
         }
     }
 }

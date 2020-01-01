@@ -1,21 +1,18 @@
-﻿namespace StoryScript {
+﻿import { IKey } from './key';
+import { IBarrierAction } from './barrierAction';
+import { ICombinable } from './combinations/combinable';
+
+/**
+ * The base properties for barriers that block a player from moving between one world location to the next.
+ */
+export interface IBarrier extends ICombinable {
     /**
-     * Barriers that block a player from moving between one world location to the next.
+     * The actions the player can perform on the barrier (e.g. inspect or open).
      */
-    export interface IBarrier extends ICombinable {
-        /**
-         * The actions the player can perform on the barrier (e.g. inspect or open).
-         */
-        actions?: ICollection<IBarrierAction>;
+    actions?: IBarrierAction[];
 
-        /**
-         * The currently selected action for the barrier. Used during run-time only.
-         */
-        selectedAction?: IBarrierAction;
-
-        /**
-         * The key used to remove this barrier. This is an item implementing the IKey interface.
-         */
-        key?: () => IKey;
-    }
+    /**
+     * The key to use to remove this barrier.
+     */
+    key?: (() => IKey) | string;
 }
