@@ -10,7 +10,7 @@ import { IDestination } from '../Interfaces/destination';
 import { ScoreEntry } from '../Interfaces/scoreEntry';
 import { IStatistics } from '../Interfaces/statistics';
 import { DataKeys } from '../DataKeys';
-import { SaveWorldState, getParsedDocument } from './sharedFunctions';
+import { SaveWorldState, getParsedDocument, checkAutoplay } from './sharedFunctions';
 import { DefaultTexts } from '../defaultTexts';
 import { IGameService } from '../Interfaces/services//gameService';
 import { IDataService } from '../Interfaces/services//dataService';
@@ -22,6 +22,7 @@ import { IBarrierAction } from '../Interfaces/barrierAction';
 import { GameState } from '../Interfaces/enumerations/gameState';
 import { PlayState } from '../Interfaces/enumerations/playState';
 import { ICombinable } from '../Interfaces/combinations/combinable';
+import { compareString } from '../globals';
 
 export class GameService implements IGameService {
     private _parsedDescriptions = new Map<string, boolean>();
@@ -83,6 +84,7 @@ export class GameService implements IGameService {
 
     reset = (): void => {
         this._dataService.save(DataKeys.WORLD, {});
+        this._dataService.save(DataKeys.PLAYEDMEDIA, []);
         this._locationService.init(this._game);
         this._game.worldProperties = this._dataService.load(DataKeys.WORLDPROPERTIES);
         var location = this._dataService.load<string>(DataKeys.LOCATION);
@@ -122,6 +124,7 @@ export class GameService implements IGameService {
         this._dataService.save(DataKeys.PREVIOUSLOCATION, '');
         this._dataService.save(DataKeys.WORLDPROPERTIES, {});
         this._dataService.save(DataKeys.WORLD, {});
+        this._dataService.save(DataKeys.PLAYEDMEDIA, []);
         this.init(true, skipIntro);
     }
 
@@ -204,6 +207,8 @@ export class GameService implements IGameService {
     }
 
     setCurrentDescription = (type: string, item: any, title: string): void => {
+        item.description = checkAutoplay(this._dataService, getParsedDocument('description', item.description, true)[0].innerHTML);
+
         this._game.currentDescription = {
             title: title,
             type: type, 
@@ -263,8 +268,28 @@ export class GameService implements IGameService {
     }
 
     getCurrentMusic = (): string => {
-        var currentEntry = !this._musicStopped && this._rules.setup.playList && this._rules.setup.playList.filter(e => this._game.playState ? e[0] === this._game.playState : e[0] === this._game.state)[0];
-        return currentEntry && <string>currentEntry[1];
+        if (this._musicStopped || this._rules.setup.playList?.length === undefined) {
+            return null;
+        }
+
+        var currentEntry = this._rules.setup.playList.filter(e => e[0] === this._game.playState || e[0] === this._game.state || compareString((<Function>e[0]).name, this._game.currentLocation.id))[0];
+        
+        if (currentEntry) {
+            return <string>currentEntry[1];
+        }
+
+        var customFunctions = this._rules.setup.playList.filter(e => typeof e[0] === 'function' && (<string>e[1]).trim() === '').map(e => e[0]);
+        let result = null;
+
+        for (var n in customFunctions) {
+            result = (<((game: IGame) => string)><unknown>customFunctions[n])(this._game);
+
+            if (result) {
+                break;
+            }
+        }
+
+        return result;
     }
 
     startMusic = (): boolean => this._musicStopped = false;
