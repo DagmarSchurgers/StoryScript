@@ -13,7 +13,7 @@ import { addHtmlSpaces, isEmpty } from '../utilities';
 import { ILocationService } from '../Interfaces/services/locationService';
 import { IDataService } from '../Interfaces/services//dataService';
 import { ActionType } from '../Interfaces/enumerations/actionType';
-import { getParsedDocument } from './sharedFunctions';
+import { getParsedDocument, checkAutoplay } from './sharedFunctions';
 
 export class LocationService implements ILocationService {
     private pristineLocations: ICollection<ICompiledLocation>;
@@ -371,6 +371,8 @@ export class LocationService implements ILocationService {
         else {
             game.currentLocation.description = game.currentLocation.descriptions['default'] || game.currentLocation.descriptions[Object.keys(game.currentLocation.descriptions)[0]];
         }
+
+        game.currentLocation.description = checkAutoplay(this._dataService, game.currentLocation.description);
 
         return true;
     }

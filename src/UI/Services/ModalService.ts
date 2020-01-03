@@ -6,35 +6,21 @@ import { IInterfaceTexts, PlayState, IGame } from 'storyScript/Interfaces/storyS
 import { MenuModalComponent } from '../Components/MenuModal/menumodal.component';
 import { EncounterModalComponent } from '../Components/EncounterModal/encountermodal.component';
 import { IModalSettings } from '../Components/modalSettings';
+import { watchPlayState } from '../helpers';
 
 @Injectable()
 export class ModalService {
     private _activeModal = null;
 
-    constructor(private _modalService: NgbModal, private _gameService: GameService , objectFactory: ObjectFactory) {
+    constructor(private _modalService: NgbModal, private _gameService: GameService, objectFactory: ObjectFactory) {
         this.game = objectFactory.GetGame();
         this.texts = objectFactory.GetTexts();
 
-        this.watchPlayState();
+        watchPlayState(this.game, this.openOrCloseModal);
     }
 
     private game: IGame;
     private texts: IInterfaceTexts;
-
-    private watchPlayState = () => {
-        var playState = this.game.playState;
-
-        Object.defineProperty(this.game, 'playState', {
-            enumerable: true,
-            get: () => {
-                return playState;
-            },
-            set: value => {
-                playState = value;
-                this.openOrCloseModal(playState);
-            }
-        });
-    }
 
     private openOrCloseModal = (state: PlayState): void => {
         if (state === PlayState.Menu) {
@@ -46,7 +32,7 @@ export class ModalService {
         }
         else if (this._activeModal) {
             // The menu modal doesn't have settings and we don't need to save when closing the menu.
-            if (this._activeModal.componentInstance.settings) {
+            if (this._activeModal.componentInstance?.settings) {
                 if (this._activeModal.componentInstance.settings.closeAction) {
                     this._activeModal.componentInstance.closeAction(this.game);
                 }

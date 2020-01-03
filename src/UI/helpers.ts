@@ -1,12 +1,41 @@
-export function getUserTemplate(componentName: string): string {
-    var r = require.context('game/ui/components', false, /.component.html$/);
-    let userTemplate = null;
+import { PlayState } from '../Engine/Interfaces/storyScript';
+import { IGame } from '../Engine/Interfaces/storyScript';
 
-    r.keys().map(i => {
-        if (i.endsWith(`${componentName}.component.html`)) {
-            userTemplate = r(i).default;
-        }
-    });
+const _templates = new Map<string, string>();
+const _playStateWatchers = [];
 
-    return userTemplate;
+export function getTemplate(componentName: string, defaultTemplate?: any): string {
+    if (_templates.size === 0) {
+        var r = require.context('game/ui/components', false, /.component.html$/);
+
+        r.keys().map(i => {
+            if (i.endsWith(`${componentName}.component.html`)) {
+                _templates.set(componentName, r(i).default);
+            }
+        });
+    }
+
+    return _templates.get(componentName) || defaultTemplate?.default;
+}
+
+export function watchPlayState(game: IGame, callBack: (newPlayState: PlayState, oldPlayState: PlayState) => void) {
+    if (_playStateWatchers.length === 0) {
+        var playState = game.playState;
+
+        Object.defineProperty(game, 'playState', {
+            enumerable: true,
+            get: () => {
+                return playState;
+            },
+            set: value => {
+                const oldState = playState;
+                playState = value;
+                _playStateWatchers.forEach(w => w(playState, oldState));
+            }
+        });
+    }
+
+    if (_playStateWatchers.indexOf(callBack) < 0) {
+        _playStateWatchers.push(callBack);
+    }
 }
