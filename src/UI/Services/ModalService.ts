@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal, NgbModalRef, NgbModalOptions } from '@ng-bootstrap/ng-bootstrap';
 import { GameService } from 'storyScript/Services/gameService';
 import { ObjectFactory } from 'storyScript/ObjectFactory';
 import { IInterfaceTexts, PlayState, IGame } from 'storyScript/Interfaces/storyScript';
@@ -24,39 +24,51 @@ export class ModalService {
     private texts: IInterfaceTexts;
 
     private openOrCloseModal = (game: IGame, newState: PlayState, oldState: PlayState): void => {
-        // 1. Just opening the menu
-        if (newState === PlayState.Menu) {
-            this._activeModal = this._modalService.open(MenuModalComponent);
-            watchDynamicStyles(this.game, this._activeModal.componentInstance.element);
-        }
-        // 2. When opening the encounter modal
-        else if (newState && !oldState && !this._previousModalState) {
-            this._activeModal = this._modalService.open(EncounterModalComponent);
-            this._activeModal.componentInstance.settings = this.getStateSettings(newState);
-            watchDynamicStyles(this.game, this._activeModal.componentInstance.element);
-        }
-        // 3. When changing states on the encounter modal (e.g. from description to combat)
-        else if (newState && oldState) {
-            this._previousModalState = oldState;
-        }
-        // When changing back from the previous state on the encounter modal (e.g. from combat back to description)
-        else if (newState != this._previousModalState) {
-            game.playState = this._previousModalState;
-            this._previousModalState = null;
-        }
-        // When no new or previous state is available, close the modal
-        else if (!newState && this._activeModal) {
-            // The menu modal doesn't have settings and we don't need to save when closing the menu.
-            if (this._activeModal.componentInstance?.settings) {
-                if (this._activeModal.componentInstance.settings.closeAction) {
-                    this._activeModal.componentInstance.closeAction(this.game);
-                }
+        const modalOptions = <NgbModalOptions>{ backdrop: 'static', keyboard: false };
 
-                this._gameService.saveGame();
+        // 1. If there is already an active modal:
+        if (this._activeModal) {
+            // a. Restore the old modal state, if it has a value.
+            if (this._previousModalState && newState != this._previousModalState) {
+                game.playState = this._previousModalState;
+                this._previousModalState = null;
+                return;
             }
 
-            this._modalService.dismissAll();
-            this._activeModal = null;
+            // b. If the new state is NULL, close the modal.
+            if (newState === null) {
+                // The menu modal doesn't have settings and we don't need to save when closing the menu.
+                if (this._activeModal.componentInstance?.settings) {
+                    if (this._activeModal.componentInstance.settings.closeAction) {
+                        this._activeModal.componentInstance.closeAction(this.game);
+                    }
+
+                    this._gameService.saveGame();
+                }
+
+                this._modalService.dismissAll();
+                this._activeModal = null;
+            }
+            // c. If the new state is not NULL, don't open a new modal. Instead, just store the old state
+            // so we can switch back to it later. If there
+            else {
+                this._previousModalState = oldState;
+            }
+
+            return;
+        }
+
+        // 2. If not, open the correct modal
+        if (newState !== null) {
+            if (newState === PlayState.Menu) {
+                this._activeModal = this._modalService.open(MenuModalComponent, modalOptions);
+                watchDynamicStyles(this.game, this._activeModal.componentInstance.element);
+            }
+            else {
+                this._activeModal = this._modalService.open(EncounterModalComponent, modalOptions);
+                this._activeModal.componentInstance.settings = this.getStateSettings(newState);
+                watchDynamicStyles(this.game, this._activeModal.componentInstance.element);
+            }
         }
     }
 
