@@ -3,12 +3,12 @@ import { SharedMethodService } from '../../Services/SharedMethodService';
 import { GameService } from 'storyScript/Services/gameService';
 import { CharacterService } from 'storyScript/Services/characterService';
 import { ObjectFactory } from 'storyScript/ObjectFactory';
-import template from './backpack.component.html';
 import { Component } from '@angular/core';
+import { getTemplate } from '../../helpers';
 
 @Component({
     selector: 'backpack',
-    template: template,
+    template: getTemplate('backpack', require('./backpack.component.html'))
 })
 export class BackpackComponent {
     constructor(private _sharedMethodService: SharedMethodService, private _gameService: GameService, private _characterService: CharacterService, objectFactory: ObjectFactory) {
@@ -22,7 +22,7 @@ export class BackpackComponent {
 
     hasDescription = (item: IItem): boolean => this._sharedMethodService.hasDescription(item);
 
-    showDescription = (item: IItem, title: string): void => this._sharedMethodService.showDescription(this.game, 'items', item, title);
+    showDescription = (item: IItem, title: string): void => this._sharedMethodService.showDescription(this.game, 'item', item, title);
 
     getCombineClass = (item: IItem): string => this.game.combinations.getCombineClass(item);
 

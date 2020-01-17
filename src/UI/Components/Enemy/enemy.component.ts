@@ -2,11 +2,11 @@ import { IGame, IInterfaceTexts, IItem, IEnemy } from 'storyScript/Interfaces/st
 import { SharedMethodService } from '../../Services/SharedMethodService';
 import { ObjectFactory } from 'storyScript/ObjectFactory';
 import { Component } from '@angular/core';
-import template from './enemy.component.html';
+import { getTemplate } from '../../helpers';
 
 @Component({
     selector: 'enemy',
-    template: template,
+    template: getTemplate('enemy', require('./enemy.component.html'))
 })
 export class EnemyComponent {
     constructor(private _sharedMethodService: SharedMethodService, objectFacory: ObjectFactory) {
@@ -25,7 +25,7 @@ export class EnemyComponent {
 
     hasDescription = (enemy: IEnemy): boolean => this._sharedMethodService.hasDescription(enemy);
 
-    showDescription = (enemy: IEnemy, title: string): void => this._sharedMethodService.showDescription(this.game, 'enemies', enemy, title);  
+    showDescription = (enemy: IEnemy, title: string): void => this._sharedMethodService.showDescription(this.game, 'enemy', enemy, title);  
 
     startCombat = (): void => this._sharedMethodService.startCombat(this.game);
 }
