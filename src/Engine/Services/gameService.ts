@@ -505,21 +505,26 @@ export class GameService implements IGameService {
             }
         });
 
-        Object.defineProperty(this._game, 'currentDescription', {
-            get: () =>
-            {
-                return currentDescription;
-            },
-            set: (value: { title: string, type: string, item: IFeature }) => {
-                currentDescription = value;
+        try
+        {
+            Object.defineProperty(this._game, 'currentDescription', {
+                get: () =>
+                {
+                    return currentDescription;
+                },
+                set: (value: { title: string, type: string, item: IFeature }) => {
+                    currentDescription = value;
 
-                if (currentDescription.item.description) {
-                    currentDescription.item.description = checkAutoplay(this._dataService, getParsedDocument('description', currentDescription.item.description, true)[0].innerHTML);
+                    if (currentDescription.item.description) {
+                        currentDescription.item.description = checkAutoplay(this._dataService, getParsedDocument('description', currentDescription.item.description, true)[0].innerHTML);
+                    }
+
+                    this._game.playState = PlayState.Description;
                 }
-
-                this._game.playState = PlayState.Description;
-            }
-        });
+            });
+        } catch (ex: any) {
+            var test = 0;
+        }
     }
 
     private initLogs = (): void => {

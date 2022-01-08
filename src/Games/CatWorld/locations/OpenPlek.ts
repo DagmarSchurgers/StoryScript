@@ -1,6 +1,7 @@
 import { format } from 'util';
 import { removeAction } from '../helpers';
 import { Muis } from '../items/Muis';
+import { Mus } from '../items/Mus';
 import { Moeder } from '../persons/Moeder';
 import { IGame, Location } from '../types';
 import description from './OpenPlek.html';
@@ -40,6 +41,7 @@ export function OpenPlek() {
 				text: walkText,
 				execute: (game: IGame) => {
 					game.currentLocation.items.push(Muis);
+					game.currentLocation.items.push(Mus);
 					showMother(game, `De muis is versgevangen en je ruikt de geur van je moeder.Opeens hoor je :"Hallo ${game.character.name}".`);
 				},
 			},

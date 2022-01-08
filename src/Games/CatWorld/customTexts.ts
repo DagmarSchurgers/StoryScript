@@ -10,6 +10,6 @@ export function CustomTexts(): IInterfaceTexts {
         currency: 'Energie',
         drop: 'Laat vallen',
         back: 'Terug naar ',
-        
+        examine: 'Bekijk {0}'
     };
 }

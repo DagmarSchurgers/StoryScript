@@ -1,7 +1,15 @@
-﻿import { IRules, ICharacter, ICreateCharacter, ICombinationAction } from 'storyScript/Interfaces/storyScript';
+﻿import { IItem } from 'Games/MyAdventureGame/types';
+import { ICreateCharacterQuestionEntry } from 'storyScript/Interfaces/createCharacter/createCharacterQuestionEntry';
+import { IRules, ICharacter, ICreateCharacter, ICombinationAction, ICreateCharacterStep } from 'storyScript/Interfaces/storyScript';
 import { IGame, IEnemy, Character } from './types';
 
 export function Rules(): IRules {
+    const kleurKeuzes: ICreateCharacterQuestionEntry[] = ['zwart', 'wit', 'rood', 'bruin', 'grijs','zilvergrijs','donkergrijs','lichtgrijs','lichtbruin','donkerbruin'].map(r => <ICreateCharacterQuestionEntry>{
+        text: r,
+        value: r,
+        bonus: 1
+    });
+
     return {
         setup: {
             getCombinationActions: (): ICombinationAction[] => {
@@ -45,25 +53,6 @@ export function Rules(): IRules {
                         {
                             questions: [
                                 {
-                                    question: 'Wat is de kleur van je vacht?',
-                                    entries: [
-                                        {
-                                            text: 'Zwart',
-                                            value: 'zwart',
-                                            bonus: 1
-                                        },
-                                        {
-                                            text: 'Wit',
-                                            value: 'wit',
-                                            bonus: 1
-                                        },
-                                    ]
-                                },
-                            ],
-                        },
-                        {
-                            questions: [
-                                {
                                     question: 'Wat is het patroon van je vacht?',
                                     entries: [
                                         {
@@ -76,10 +65,41 @@ export function Rules(): IRules {
                                             value: 'gevlekt',
                                             bonus: 1
                                         },
+                                        {
+                                            text: 'Gestreept',
+                                            value: 'gestreept',
+                                            bonus: 1
+                                        },
                                     ]
                                 },
-                            ]
+                            ],
+                            nextStepSelector: (characterData: ICreateCharacter, step: ICreateCharacterStep) => {
+                                var selected = characterData.steps[characterData.currentStep].questions[0].selectedEntry;
+            
+                                if (selected.value != 'effen') {
+                                    var effect = selected.value === 'gevlekt' ? 'vlekken' : 'strepen';
+            
+                                    characterData.steps.splice(3, 0, {
+                                        questions: [
+                                            {
+                                                question: `Wat is de kleur van je ${effect}?`,
+                                                entries: kleurKeuzes
+                                            },
+                                        ]
+                                    },)
+                                }
+
+                                return 2;
+                            }
                         },
+                        {
+                            questions: [
+                                {
+                                    question: 'Wat is de kleur van je vacht?',
+                                    entries: kleurKeuzes
+                                },
+                            ],
+                        }
                     ]
                 };
             },
@@ -87,6 +107,12 @@ export function Rules(): IRules {
             createCharacter: (game: IGame, characterData: ICreateCharacter): ICharacter => {
                 var character = new Character();
                 return character;
+            },
+            
+            beforePickup: (game: IGame, character: ICharacter, item: IItem) => {
+                character.items.forEach(i => game.currentLocation.items.push(i));
+                character.items.length = 0;
+                return true;
             }
         },
 

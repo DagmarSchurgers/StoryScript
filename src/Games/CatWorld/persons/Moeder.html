@@ -1,15 +1,41 @@
 <description name="">
-Een slanke grijs gevlekte poes, met warme, helderblauwe ogen.	
+	Een slanke grijs gevlekte poes, met warme, helderblauwe ogen.	
 </description>
 <conversation>
 	<default-reply>
+		Dag mams, tot de volgende keer!
 	</default-reply>
-	<node name="">
+	<node name="start">
 		<p>
-			
+			Hallo {{game.character.name}}, wat doe je hier?
 		</p>
 		<replies default-reply="">
-			
+			<reply node="ikzochtje" set-start="" requires="" trigger="" quest-complete="">
+				Ik was op zoek naar je.
+			</reply>
+			<reply node="opjacht" set-start="" requires="" trigger="" quest-complete="">
+				Ik ben op jacht.
+			</reply>
+		</replies>
+	</node>
+	<node name="ikzochtje">
+		<p>
+			Nou, hier ben ik dan. Laten we terug gaan naar het nest.
+		</p>
+		<replies default-reply="">
+			<reply node="" set-start="" requires="" trigger="terugNaarNest" quest-complete="">
+				Ok
+			</reply>
+		</replies>
+	</node>
+	<node name="opjacht">
+		<p>
+			Ja, ja. Je bedoelt dat IK op jacht was. Laten we terug gaan naar het nest.
+		</p>
+		<replies default-reply="">
+			<reply node="" set-start="" requires="" trigger="terugNaarNest" quest-complete="">
+				Ok
+			</reply>
 		</replies>
 	</node>
 </conversation>
