@@ -32,8 +32,11 @@ export function OpenPlek() {
 		],
 		trade: [
 		],
-		enterEvents: [
-		],
+        enterEvents: [
+            (game: IGame) => {
+                game.logToActionLog('Op het eerste gezicht is alles rustig. Maar dan ruik je prooi en als je wat beter kijkt dan zie je een muis op de grond liggen.')
+            }
+        ],
 		leaveEvents: [
 		],
 		actions: [

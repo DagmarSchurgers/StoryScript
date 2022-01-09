@@ -25,10 +25,13 @@ export function Bos() {
 		enterEvents: [
 		],
 		leaveEvents: [
+		 (game: IGame) => {
+			game.logToActionLog('Je ruikt dat je moeder het paadje heeft gevolgd.')
+		 }
 		],
 		actions: [
 		],
 		combatActions: [
 		],
-	});
+		 });
 }

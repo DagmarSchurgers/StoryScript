@@ -4,7 +4,13 @@ import { IRules, ICharacter, ICreateCharacter, ICombinationAction, ICreateCharac
 import { IGame, IEnemy, Character } from './types';
 
 export function Rules(): IRules {
-    const kleurKeuzes: ICreateCharacterQuestionEntry[] = ['zwart', 'wit', 'rood', 'bruin', 'grijs','zilvergrijs','donkergrijs','lichtgrijs','lichtbruin','donkerbruin'].map(r => <ICreateCharacterQuestionEntry>{
+    const vachtKleurKeuzes: ICreateCharacterQuestionEntry[] = ['zwart', 'wit', 'rood', 'bruin', 'grijs','zilvergrijs','donkergrijs','lichtgrijs','lichtbruin','donkerbruin'].map(r => <ICreateCharacterQuestionEntry>{
+        text: r,
+        value: r,
+        bonus: 1
+    });
+
+    const oogKleurKeuzes : ICreateCharacterQuestionEntry[] = ['groen', 'blauw'].map(r => <ICreateCharacterQuestionEntry>{
         text: r,
         value: r,
         bonus: 1
@@ -70,6 +76,11 @@ export function Rules(): IRules {
                                             value: 'gestreept',
                                             bonus: 1
                                         },
+                                        {
+                                            text: 'Gestipt',
+                                            value: 'gestipt',
+                                            bonus: 1
+                                        },
                                     ]
                                 },
                             ],
@@ -77,13 +88,26 @@ export function Rules(): IRules {
                                 var selected = characterData.steps[characterData.currentStep].questions[0].selectedEntry;
             
                                 if (selected.value != 'effen') {
-                                    var effect = selected.value === 'gevlekt' ? 'vlekken' : 'strepen';
-            
+                                    let effect;
+                                    
+                                    switch (selected.value)
+                                    {
+                                        case 'gevlekt': {
+                                            effect = 'vlekken';
+                                        }; break;
+                                        case 'gestreept': {
+                                            effect = 'strepen';
+                                        }; break;
+                                        case 'gestipt': {
+                                            effect = 'stippen';
+                                        }; break;
+                                    }
+                                    
                                     characterData.steps.splice(3, 0, {
                                         questions: [
                                             {
                                                 question: `Wat is de kleur van je ${effect}?`,
-                                                entries: kleurKeuzes
+                                                entries: vachtKleurKeuzes
                                             },
                                         ]
                                     },)
@@ -96,8 +120,43 @@ export function Rules(): IRules {
                             questions: [
                                 {
                                     question: 'Wat is de kleur van je vacht?',
-                                    entries: kleurKeuzes
+                                    entries: vachtKleurKeuzes
                                 },
+                            ],
+                        },
+                        {
+                            questions: [
+                                {
+                                    question: 'Wat is de kleur van je ogen?',
+                                    entries: oogKleurKeuzes
+                                },
+                            ],
+                        },
+                        {
+                            questions: [
+                                {
+                                    question: 'Wat kun je?',
+                                    entries: [
+                                        {
+                                            text: 'jagen',
+                                            value: 'jagen',
+                                            bonus: 1
+                                        },
+                                        {
+                                            text: 'vechten',
+                                            value: 'vechten',
+                                            bonus: 1
+                                        },
+                                        {
+                                            text: 'klimmen',
+                                            value: 'klimmen',
+                                            bonus: 1
+                                        },
+                                    ]                                       
+                                
+                                   
+                                
+                                    }
                             ],
                         }
                     ]
